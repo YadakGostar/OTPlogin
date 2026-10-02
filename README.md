@@ -11,8 +11,7 @@ OTP login and registration extension for Joomla 6+ and the latest PHP. Publisher
 
 ## فارسی
 
-افزونه ورود و ثبت‌نام OTP ویژه جوملا ۶ و آخرین نسخه PHP. ناشر: Reza Esfandiari — https://www.yadakgostar.co
-
+افزونه ورود و ثبت‌نام OTP ویژه جوملا ۶ و آخرین نسخه PHP. ناشر: Reza Esfandiari
 ---
 
 ## Highlights / ویژگی‌های برجسته
