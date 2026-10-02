@@ -2,11 +2,10 @@
 
 **Version:** 1.0.0  
 **Publisher:** Reza Esfandiari  
-**Website:** https://www.yadakgostar.co  
 **License:** GPL-2.0-or-later  
 **Requirements:** Joomla 6+, PHP 8.3+
 
-OTP login and registration extension for Joomla 6+ and the latest PHP. Publisher: Reza Esfandiari — https://www.yadakgostar.co
+OTP login and registration extension for Joomla 6+ and the latest PHP. Publisher: Reza Esfandiari — 
 
 ---
 
@@ -45,7 +44,7 @@ OTP login and registration extension for Joomla 6+ and the latest PHP. Publisher
 The publisher warmly welcomes suggestions and improvements from the Joomla community.  
 ناشر مشتاقانه منتظر پیشنهادات و بهبود افزونه از سوی دوستداران جوملا است.
 
-- Website: https://www.yadakgostar.co  
+
 - Author: Reza Esfandiari
 
 ---
