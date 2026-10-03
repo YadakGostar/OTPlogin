@@ -18,19 +18,24 @@ jobs:
       - name: Extract main zip to root
         run: unzip -o pkg_otplogin-1.0.0.zip -d .
 
-      - name: Extract nested packages
+      - name: Extract nested packages to root
         run: |
           cd packages
           for f in *.zip; do
             [ -f "$f" ] || continue
-            mkdir -p "${f%.zip}"
-            unzip -o "$f" -d "${f%.zip}"
+            unzip -o "$f" -d ..
           done
+
+      - name: Remove all zip files
+        run: |
+          rm -f pkg_otplogin-1.0.0.zip
+          rm -f packages/*.zip
+          rmdir packages 2>/dev/null || true
 
       - name: Commit extracted files
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add .
-          git commit -m "Extract all packages" || echo "no changes"
+          git add -A
+          git commit -m "Extract all packages to root" || echo "no changes"
           git push
