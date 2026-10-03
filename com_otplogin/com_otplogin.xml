@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="component" method="upgrade">
+    <name>com_otplogin</name>
+    <author>Reza Esfandiari</author>
+    <authorUrl>https://www.yadakgostar.co</authorUrl>
+    <creationDate>2026-10-01</creationDate>
+    <copyright>(C) 2026 Reza Esfandiari</copyright>
+    <license>GNU General Public License version 2 or later</license>
+    <version>1.0.0</version>
+    <description>OTP login and registration extension for Joomla 6+ and the latest PHP. Publisher: Reza Esfandiari — https://www.yadakgostar.co</description>
+    <namespace path="src">Otplogin\Component\Otplogin</namespace>
+
+    <!-- Joomla 6+ only -->
+    <phpminimum>8.3.0</phpminimum>
+
+    <install>
+        <sql>
+            <file driver="mysql" charset="utf8">sql/install.mysql.utf8.sql</file>
+        </sql>
+    </install>
+    <uninstall>
+        <sql>
+            <file driver="mysql" charset="utf8">sql/uninstall.mysql.utf8.sql</file>
+        </sql>
+    </uninstall>
+    <update>
+        <schemas>
+            <schemapath type="mysql">sql/updates/mysql</schemapath>
+        </schemas>
+    </update>
+
+    <files folder="site">
+        <folder>src</folder>
+        <folder>services</folder>
+    </files>
+    <languages folder="site/language">
+        <language tag="fa-IR">fa-IR/com_otplogin.ini</language>
+        <language tag="en-GB">en-GB/com_otplogin.ini</language>
+    </languages>
+
+    <administration>
+        <menu link="option=com_otplogin">COM_OTPLOGIN</menu>
+        <files folder="admin">
+            <filename>access.xml</filename>
+            <filename>config.xml</filename>
+            <folder>services</folder>
+            <folder>sql</folder>
+            <folder>src</folder>
+            <folder>tmpl</folder>
+        </files>
+        <languages folder="admin/language">
+            <language tag="fa-IR">fa-IR/com_otplogin.ini</language>
+            <language tag="fa-IR">fa-IR/com_otplogin.sys.ini</language>
+            <language tag="en-GB">en-GB/com_otplogin.ini</language>
+            <language tag="en-GB">en-GB/com_otplogin.sys.ini</language>
+        </languages>
+    </administration>
+</extension>

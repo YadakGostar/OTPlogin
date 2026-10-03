@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="module" client="site" method="upgrade">
+    <name>mod_otplogin</name>
+    <author>Reza Esfandiari</author>
+    <authorUrl>https://www.yadakgostar.co</authorUrl>
+    <creationDate>2026-10-01</creationDate>
+    <copyright>(C) 2026 Reza Esfandiari</copyright>
+    <license>GNU General Public License version 2 or later</license>
+    <version>1.0.0</version>
+    <phpminimum>8.3.0</phpminimum>
+    <description>OTP login and registration extension for Joomla 6+ and the latest PHP. Publisher: Reza Esfandiari — https://www.yadakgostar.co</description>
+    <files>
+        <filename module="mod_otplogin">mod_otplogin.php</filename>
+        <folder>tmpl</folder>
+    </files>
+    <languages folder="language">
+        <language tag="fa-IR">fa-IR/mod_otplogin.ini</language>
+        <language tag="fa-IR">fa-IR/mod_otplogin.sys.ini</language>
+        <language tag="en-GB">en-GB/mod_otplogin.ini</language>
+        <language tag="en-GB">en-GB/mod_otplogin.sys.ini</language>
+    </languages>
+    <media destination="mod_otplogin" folder="media">
+        <folder>css</folder>
+        <folder>js</folder>
+    </media>
+    <config>
+        <fields name="params">
+            <fieldset name="basic">
+                <field name="mode" type="list" label="MOD_OTPLOGIN_FIELD_MODE" description="MOD_OTPLOGIN_FIELD_MODE_DESC" default="inline">
+                    <option value="inline">MOD_OTPLOGIN_MODE_INLINE</option>
+                    <option value="modal">MOD_OTPLOGIN_MODE_MODAL</option>
+                </field>
+                <field name="theme" type="list" label="MOD_OTPLOGIN_FIELD_THEME" description="MOD_OTPLOGIN_FIELD_THEME_DESC" default="default">
+                    <option value="default">MOD_OTPLOGIN_THEME_DEFAULT</option>
+                    <option value="style3">MOD_OTPLOGIN_THEME_STYLE3</option>
+                </field>
+                <field name="heading" type="text" label="MOD_OTPLOGIN_FIELD_HEADING" description="MOD_OTPLOGIN_FIELD_HEADING_DESC" />
+                <field name="button_label" type="text" label="MOD_OTPLOGIN_FIELD_BUTTON" description="MOD_OTPLOGIN_FIELD_BUTTON_DESC" />
+                <field name="redirect_menu" type="menuitem" label="MOD_OTPLOGIN_FIELD_REDIRECT" description="MOD_OTPLOGIN_FIELD_REDIRECT_DESC" default="" >
+                    <option value="">MOD_OTPLOGIN_REDIRECT_CURRENT</option>
+                </field>
+            </fieldset>
+            <fieldset name="advanced">
+                <field name="moduleclass_sfx" type="textarea" label="COM_MODULES_FIELD_MODULECLASS_SFX_LABEL" rows="1" validate="CssIdentifier" />
+            </fieldset>
+        </fields>
+    </config>
+</extension>

@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="package" method="upgrade">
+    <name>OTP Login (IPPanel)</name>
+    <packagename>otplogin</packagename>
+    <author>Reza Esfandiari</author>
+    <authorUrl>https://www.yadakgostar.co</authorUrl>
+    <creationDate>2026-10-01</creationDate>
+    <copyright>(C) 2026 Reza Esfandiari</copyright>
+    <license>GNU General Public License version 2 or later</license>
+    <version>1.0.0</version>
+    <description>OTP login and registration extension for Joomla 6+ and the latest PHP. Publisher: Reza Esfandiari — https://www.yadakgostar.co</description>
+    <scriptfile>script.php</scriptfile>
+    <files folder="packages">
+        <file type="component" id="com_otplogin">com_otplogin.zip</file>
+        <file type="plugin" id="otplogin" group="authentication">plg_authentication_otplogin.zip</file>
+        <file type="module" id="mod_otplogin" client="site">mod_otplogin.zip</file>
+        <file type="plugin" id="otploginavatar" group="user">plg_user_otploginavatar.zip</file>
+    </files>
+</extension>
