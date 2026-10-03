@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="plugin" group="authentication" method="upgrade">
+    <name>plg_authentication_otplogin</name>
+    <author>Reza Esfandiari</author>
+    <authorUrl>https://www.yadakgostar.co</authorUrl>
+    <creationDate>2026-10-01</creationDate>
+    <copyright>(C) 2026 Reza Esfandiari</copyright>
+    <license>GNU General Public License version 2 or later</license>
+    <version>1.0.0</version>
+    <phpminimum>8.3.0</phpminimum>
+    <description>OTP login and registration extension for Joomla 6+ and the latest PHP. Publisher: Reza Esfandiari — https://www.yadakgostar.co</description>
+    <namespace path="src">Otplogin\Plugin\Authentication\Otplogin</namespace>
+    <files>
+        <folder plugin="otplogin">services</folder>
+        <folder>src</folder>
+    </files>
+    <languages folder="language">
+        <language tag="fa-IR">fa-IR/plg_authentication_otplogin.ini</language>
+        <language tag="fa-IR">fa-IR/plg_authentication_otplogin.sys.ini</language>
+        <language tag="en-GB">en-GB/plg_authentication_otplogin.ini</language>
+        <language tag="en-GB">en-GB/plg_authentication_otplogin.sys.ini</language>
+    </languages>
+</extension>
