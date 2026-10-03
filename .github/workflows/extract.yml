@@ -12,13 +12,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Extract main zip
-        run: unzip -o pkg_otplogin-1.0.0.zip -d extracted/
+      - name: Remove old extracted folder
+        run: rm -rf extracted
+
+      - name: Extract main zip to root
+        run: unzip -o pkg_otplogin-1.0.0.zip -d .
 
       - name: Commit extracted files
         run: |
           git config user.name "github-actions"
           git config user.email "actions@github.com"
-          git add extracted/
-          git commit -m "Auto-extract plugin source" || echo "no changes"
+          git add .
+          git commit -m "Extract plugin source to root" || echo "no changes"
           git push
