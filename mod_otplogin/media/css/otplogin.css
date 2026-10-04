@@ -1,0 +1,1741 @@
+/*
+ * mod_otplogin — glass popup style (matches sample screens)
+ */
+.otp,
+.otp-modal {
+  --otp-accent: #6d5efc;
+  --otp-accent-2: #4f7cff;
+  --otp-accent-ink: #fff;
+  --otp-danger: #e11d48;
+  --otp-danger-soft: rgba(225, 29, 72, 0.1);
+  --otp-ok: #059669;
+  --otp-ok-soft: rgba(5, 150, 105, 0.1);
+  --otp-logout-1: #ff6b9d;
+  --otp-logout-2: #ff4d6d;
+  --otp-muted: #8b92a8;
+  --otp-ink: #2d3348;
+  --otp-line: rgba(109, 94, 252, 0.22);
+  --otp-line-strong: rgba(109, 94, 252, 0.35);
+  --otp-surface: rgba(255, 255, 255, 0.78);
+  --otp-input-bg: rgba(255, 255, 255, 0.92);
+  --otp-shadow: 0 10px 40px rgba(79, 70, 229, 0.12), 0 2px 8px rgba(15, 23, 42, 0.04);
+  --otp-radius: 1.15rem;
+  --otp-radius-sm: 0.85rem;
+  --otp-grad: linear-gradient(135deg, #6d5efc 0%, #4f7cff 55%, #6b8cff 100%);
+  --otp-grad-logout: linear-gradient(135deg, #ff7eb3 0%, #ff4d6d 100%);
+}
+
+.otp {
+  box-sizing: border-box;
+  max-width: 22.5rem;
+  width: 100%;
+  padding: 1.45rem 1.4rem 1.5rem;
+  font: inherit;
+  color: var(--otp-ink);
+  text-align: start;
+  direction: rtl;
+  background:
+    linear-gradient(145deg, rgba(255, 255, 255, 0.92) 0%, rgba(245, 247, 255, 0.88) 45%, rgba(237, 242, 255, 0.9) 100%);
+  border: 1.5px solid rgba(109, 94, 252, 0.28);
+  border-radius: var(--otp-radius);
+  box-shadow: var(--otp-shadow);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+.otp *,
+.otp *::before,
+.otp *::after {
+  box-sizing: inherit;
+}
+
+.otp__title {
+  margin: 0 0 0.95rem;
+  font-size: 1.05rem;
+  font-weight: 700;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+  color: var(--otp-ink);
+  text-align: center;
+}
+
+.otp__title:focus {
+  outline: none;
+}
+
+.otp__msg {
+  min-height: 0;
+  margin: 0 0 0.75rem;
+  padding: 0.5rem 0.7rem;
+  font-size: 0.86rem;
+  line-height: 1.5;
+  border-radius: 0.7rem;
+  text-align: center;
+  direction: rtl;
+  unicode-bidi: plaintext;
+}
+
+/* Keep phone numbers LTR inside RTL sentences */
+.otp__msg .otp-ltr,
+.otp__label .otp-ltr,
+.otp [dir="ltr"].otp-phone-num {
+  direction: ltr;
+  unicode-bidi: isolate;
+  display: inline-block;
+}
+
+.otp__msg:empty {
+  display: none;
+  margin: 0;
+  padding: 0;
+}
+
+.otp__msg[data-kind='error'] {
+  color: var(--otp-danger);
+  background: var(--otp-danger-soft);
+}
+
+.otp__msg[data-kind='ok'] {
+  color: var(--otp-ok);
+  background: var(--otp-ok-soft);
+}
+
+.otp__step[hidden] {
+  display: none !important;
+}
+
+.otp__label {
+  display: flex;
+  align-items: center;
+  /* The label is RTL, so flex-start is the RIGHT edge (flex-end put it on the left). */
+  justify-content: flex-start;
+  gap: 0.35rem;
+  margin: 0 0 0.45rem;
+  font-weight: 600;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  color: var(--otp-ink);
+  direction: rtl;
+  text-align: right;
+  unicode-bidi: plaintext;
+}
+
+/* Sentences (not label + icon rows): plain right-aligned RTL text. A flex container would
+   split the text and the phone number into separate items and push them to the left. */
+p.otp__label {
+  display: block;
+  text-align: right;
+}
+
+.otp__label--sub {
+  margin-top: 0.95rem;
+  font-weight: 600;
+  font-size: 0.88rem;
+  color: var(--otp-ink);
+}
+
+.otp__label small {
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+.otp__label-ico {
+  display: inline-flex;
+  width: 1.05rem;
+  height: 1.05rem;
+  opacity: 0.75;
+  color: var(--otp-accent);
+}
+
+.otp__hint {
+  margin: 0.4rem 0 0.85rem;
+  font-size: 0.8rem;
+  line-height: 1.45;
+  color: var(--otp-muted);
+  direction: rtl;
+  text-align: right;
+  unicode-bidi: plaintext;
+}
+
+/* ---- inputs ---- */
+.otp__input {
+  display: block;
+  width: 100%;
+  padding: 0.8rem 1rem;
+  font: inherit;
+  font-size: 0.95rem;
+  color: var(--otp-ink);
+  background: var(--otp-input-bg);
+  border: 1.5px solid rgba(148, 163, 184, 0.35);
+  border-radius: var(--otp-radius-sm);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.otp__input::placeholder {
+  color: #b0b7c9;
+}
+
+.otp__input:hover {
+  border-color: rgba(109, 94, 252, 0.4);
+}
+
+.otp__input:focus {
+  background: #fff;
+  border-color: var(--otp-accent);
+  box-shadow: 0 0 0 3px rgba(109, 94, 252, 0.15);
+  outline: none;
+}
+
+.otp__input:focus-visible,
+.otp__cell:focus-visible,
+.otp__btn:focus-visible,
+.otp__link:focus-visible,
+.otp__choice:focus-visible {
+  outline: 2px solid var(--otp-accent);
+  outline-offset: 2px;
+}
+
+/* Phone row: +98 | number */
+.otp__phone-row {
+  display: flex;
+  direction: ltr;
+  gap: 0.5rem;
+  align-items: stretch;
+}
+
+.otp__phone-cc {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3.4rem;
+  padding: 0 0.7rem;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--otp-ink);
+  background: rgba(255, 255, 255, 0.95);
+  border: 1.5px solid rgba(148, 163, 184, 0.35);
+  border-radius: var(--otp-radius-sm);
+  user-select: none;
+}
+
+.otp__input--phone {
+  flex: 1 1 auto;
+  font-size: 1.05rem;
+  letter-spacing: 0.04em;
+  text-align: start;
+  font-variant-numeric: tabular-nums;
+  direction: ltr;
+}
+
+/* ---- buttons ---- */
+.otp__btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  width: 100%;
+  margin-top: 1.1rem;
+  padding: 0.85rem 1.1rem;
+  font: inherit;
+  font-weight: 700;
+  font-size: 0.98rem;
+  color: inherit;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 999px;
+  transition: filter 0.15s ease, transform 0.1s ease, box-shadow 0.15s ease;
+}
+
+.otp__btn--primary {
+  color: var(--otp-accent-ink);
+  background: var(--otp-grad);
+  border: 0;
+  box-shadow: 0 8px 20px rgba(79, 124, 255, 0.35);
+}
+
+.otp__btn--primary:hover {
+  filter: brightness(1.06);
+}
+
+.otp__btn--primary:active {
+  transform: translateY(1px);
+}
+
+.otp__btn--logout {
+  color: #fff;
+  background: var(--otp-grad-logout);
+  border: 0;
+  box-shadow: 0 8px 18px rgba(255, 77, 109, 0.3);
+  margin-top: 0.65rem;
+}
+
+.otp__btn--logout:hover {
+  filter: brightness(1.05);
+}
+
+.otp__btn--soft {
+  margin-top: 0.85rem;
+  color: #4f6ef7;
+  background: linear-gradient(180deg, #f4f6ff, #eef1ff);
+  border: 1px solid rgba(109, 94, 252, 0.15);
+  box-shadow: none;
+  font-weight: 600;
+}
+
+.otp__btn--quiet {
+  width: auto;
+  margin-top: 0.35rem;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.88rem;
+  background: transparent;
+  border: 0;
+}
+
+.otp__btn[disabled] {
+  cursor: progress;
+  opacity: 0.55;
+}
+
+.otp__btn-ico {
+  display: inline-flex;
+  font-size: 1.05em;
+  line-height: 1;
+}
+
+.otp__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem 1rem;
+  justify-content: center;
+  align-items: center;
+  margin-top: 1rem;
+}
+
+.otp__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.25rem 0;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--otp-accent);
+  cursor: pointer;
+  background: none;
+  border: 0;
+  text-decoration: none;
+}
+
+.otp__link:hover {
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+}
+
+.otp__link[disabled] {
+  color: var(--otp-muted);
+  cursor: default;
+  opacity: 0.7;
+  text-decoration: none;
+}
+
+/* Code digit strip */
+.otp__code {
+  margin: 0.35rem 0 0.2rem;
+}
+
+.otp__cells {
+  display: flex;
+  gap: 0.4rem;
+  padding: 0.15rem;
+  background: transparent;
+  border: 0;
+  overflow: visible;
+  direction: ltr;
+}
+
+.otp__cell {
+  flex: 1 1 0;
+  min-width: 0;
+  aspect-ratio: 1 / 1.15;
+  max-height: 3.4rem;
+  padding: 0.35rem 0;
+  font: inherit;
+  font-size: 1.4rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--otp-ink);
+  text-align: center;
+  background: var(--otp-input-bg);
+  border: 1.5px solid rgba(148, 163, 184, 0.35);
+  border-radius: var(--otp-radius-sm);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease, background 0.15s ease;
+}
+
+.otp__cell:hover {
+  border-color: rgba(109, 94, 252, 0.4);
+}
+
+.otp__cell:focus {
+  background: #fff;
+  border-color: var(--otp-accent);
+  box-shadow: 0 0 0 3px rgba(109, 94, 252, 0.15);
+  outline: none;
+}
+
+.otp__cells[data-error] .otp__cell {
+  border-color: var(--otp-danger);
+  background: var(--otp-danger-soft);
+}
+
+.otp__life {
+  height: 3px;
+  margin-top: 0.55rem;
+  overflow: hidden;
+  background: rgba(148, 163, 184, 0.25);
+  border-radius: 999px;
+}
+
+.otp__life-bar {
+  display: block;
+  height: 100%;
+  background: var(--otp-grad);
+  border-radius: 999px;
+  transform-origin: left center;
+  transition: transform 1s linear;
+}
+
+.otp__life[data-low] .otp__life-bar {
+  background: linear-gradient(90deg, var(--otp-danger), #fb7185);
+}
+
+.otp__choice {
+  display: block;
+  width: 100%;
+  margin-top: 0.55rem;
+  padding: 0.9rem 1rem;
+  font: inherit;
+  color: var(--otp-ink);
+  text-align: start;
+  cursor: pointer;
+  background: rgba(255, 255, 255, 0.75);
+  border: 1.5px solid rgba(148, 163, 184, 0.3);
+  border-radius: var(--otp-radius-sm);
+  transition: border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+}
+
+.otp__choice strong,
+.otp__choice span {
+  display: block;
+}
+
+.otp__choice span {
+  margin-top: 0.2rem;
+  font-size: 0.82rem;
+  color: var(--otp-muted);
+}
+
+.otp__choice:hover {
+  border-color: var(--otp-accent);
+  background: rgba(109, 94, 252, 0.06);
+  box-shadow: 0 0 0 1px rgba(109, 94, 252, 0.1);
+}
+
+.otp__hp {
+  position: absolute;
+  inset-inline-start: -10000px;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+}
+
+/* ---- signed-in panel (glass user panel) ---- */
+.otp--signed-in {
+  --otp-u1: #667eea;
+  --otp-u2: #764ba2;
+  --otp-u3: #f093fb;
+  --otp-u4: #f5576c;
+  position: relative;
+  max-width: 100%;
+  padding: 0;
+  overflow: hidden;
+  text-align: start;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(249, 250, 251, 0.9) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 1.25rem;
+  box-shadow:
+    0 8px 32px rgba(102, 126, 234, 0.15),
+    0 4px 16px rgba(0, 0, 0, 0.1),
+    inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+/* slowly drifting colour wash behind the content */
+.otp--signed-in::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(45deg, transparent, rgba(102, 126, 234, 0.08), transparent, rgba(245, 87, 108, 0.08), transparent);
+  animation: otpGradientShift 15s ease infinite;
+  z-index: 0;
+  pointer-events: none;
+}
+
+@keyframes otpGradientShift {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  33% { transform: translate(30px, -30px) rotate(120deg); }
+  66% { transform: translate(-20px, 20px) rotate(240deg); }
+}
+
+.otp-user {
+  position: relative;
+  z-index: 1;
+  box-sizing: border-box;
+  width: 100%;
+  padding: 2rem 1.75rem 1.75rem;
+}
+
+.otp-user__info {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  margin-bottom: 1.75rem;
+  padding-bottom: 1.75rem;
+  border-bottom: 2px solid rgba(102, 126, 234, 0.15);
+}
+
+/* gradient underline that grows to full width on hover */
+.otp-user__info::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  inset-inline-start: 0;
+  width: 40%;
+  height: 2px;
+  background: linear-gradient(90deg, var(--otp-u1), var(--otp-u2));
+  border-radius: 1rem;
+  transition: width 0.3s ease;
+}
+
+.otp-user__info:hover::after {
+  width: 100%;
+}
+
+.otp-user__avatar {
+  position: relative;
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 4.5rem;
+  height: 4.5rem;
+  border-radius: 50%;
+  color: #fff;
+  font-size: 2.25rem;
+  background: linear-gradient(135deg, var(--otp-u1) 0%, var(--otp-u2) 100%);
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.4), inset 0 2px 4px rgba(255, 255, 255, 0.3);
+  animation: otpPulse 2s ease-in-out infinite;
+}
+
+@keyframes otpPulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+}
+
+/* soft ring around the avatar */
+.otp-user__avatar::before {
+  content: '';
+  position: absolute;
+  inset: -4px;
+  padding: 4px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--otp-u1), var(--otp-u2));
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  opacity: 0.4;
+}
+
+.otp-user__details {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.otp-user__name {
+  width: 100%;
+  margin: 0 0 0.5rem;
+  overflow: hidden;
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.5;
+  letter-spacing: -0.02em;
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  background: linear-gradient(135deg, var(--otp-u1), var(--otp-u2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.otp-user__welcome {
+  display: block;
+  width: 100%;
+  overflow: hidden;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #6b7280;
+  text-align: start;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.otp-user__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
+  width: 100%;
+}
+
+.otp-user__form {
+  margin: 0;
+}
+
+.otp-user__btn {
+  position: relative;
+  display: flex;
+  box-sizing: border-box;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  width: 100%;
+  margin: 0;
+  padding: 1rem 1.5rem;
+  overflow: hidden;
+  font: inherit;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.4;
+  text-decoration: none;
+  cursor: pointer;
+  border-radius: 0.75rem;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* light sweep across the button on hover */
+.otp-user__btn::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.4), transparent);
+  transition: left 0.6s ease;
+}
+
+.otp-user__btn:hover::before {
+  left: 100%;
+}
+
+.otp-user__btn svg,
+.otp-user__btn span {
+  position: relative;
+  z-index: 1;
+}
+
+.otp-user__btn svg {
+  flex-shrink: 0;
+  transition: transform 0.3s ease;
+}
+
+.otp-user__btn:hover {
+  transform: translateY(-3px);
+}
+
+.otp-user__btn:active {
+  transform: translateY(-1px);
+}
+
+.otp-user__btn:focus-visible {
+  outline: 2px solid var(--otp-u1);
+  outline-offset: 2px;
+}
+
+.otp-user__btn--profile {
+  color: var(--otp-u1);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.1) 0%, rgba(118, 75, 162, 0.1) 100%);
+  border: 2px solid rgba(102, 126, 234, 0.2);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.1);
+}
+
+.otp-user__btn--profile:hover {
+  color: var(--otp-u2);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%);
+  border-color: var(--otp-u1);
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.3);
+}
+
+.otp-user__btn--profile:hover svg {
+  transform: scale(1.2) rotate(10deg);
+}
+
+.otp-user__btn--logout {
+  color: #fff;
+  background: linear-gradient(135deg, var(--otp-u3) 0%, var(--otp-u4) 100%);
+  border: 0;
+  box-shadow: 0 4px 15px rgba(245, 87, 108, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+.otp-user__btn--logout:hover {
+  color: #fff;
+  background: linear-gradient(135deg, var(--otp-u4) 0%, var(--otp-u3) 100%);
+  box-shadow: 0 8px 25px rgba(245, 87, 108, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.otp-user__btn--logout:hover svg {
+  transform: scale(1.2) rotate(-10deg);
+}
+
+@media (max-width: 640px) {
+  .otp-user { padding: 1.75rem 1.5rem 1.5rem; }
+  .otp-user__avatar { width: 4rem; height: 4rem; font-size: 2rem; }
+  .otp-user__name { font-size: 1.375rem; }
+  .otp-user__welcome { font-size: 0.9375rem; }
+  .otp-user__btn { padding: 0.875rem 1.25rem; font-size: 1rem; }
+}
+
+@media (max-width: 480px) {
+  .otp-user { padding: 1.5rem 1.25rem 1.25rem; }
+  .otp-user__avatar { width: 3.5rem; height: 3.5rem; font-size: 1.75rem; }
+  .otp-user__name { font-size: 1.25rem; }
+  .otp-user__welcome { font-size: 0.875rem; }
+  .otp-user__btn { padding: 0.75rem 1rem; font-size: 0.9375rem; gap: 0.5rem; }
+}
+
+@media (prefers-color-scheme: dark) {
+  .otp--signed-in {
+    background: linear-gradient(135deg, rgba(31, 41, 55, 0.95) 0%, rgba(55, 65, 81, 0.9) 100%);
+    border-color: rgba(255, 255, 255, 0.1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  }
+  .otp-user__info { border-bottom-color: rgba(102, 126, 234, 0.3); }
+  .otp-user__welcome { color: #d1d5db; }
+  .otp-user__btn--profile {
+    color: #a78bfa;
+    background: linear-gradient(135deg, rgba(102, 126, 234, 0.2) 0%, rgba(118, 75, 162, 0.2) 100%);
+    border-color: rgba(102, 126, 234, 0.4);
+  }
+  .otp-user__btn--profile:hover { color: #c4b5fd; }
+}
+
+@media (prefers-contrast: high) {
+  .otp--signed-in { border-width: 3px; }
+  .otp-user__btn { border-width: 3px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .otp--signed-in::before,
+  .otp-user__avatar { animation: none !important; }
+  .otp-user__btn,
+  .otp-user__btn svg,
+  .otp-user__btn::before,
+  .otp-user__info::after { transition: none !important; }
+  .otp-user__btn:hover,
+  .otp-user__btn:hover svg { transform: none !important; }
+}
+
+/* ---- modal ----
+ * Markup is a UIkit modal: <div uk-modal><div class="uk-modal-dialog">…
+ * With UIkit on the page, UIkit shows it as an overlay (appended to <body>, so a
+ * footer position cannot trap it). Without UIkit, otplogin.js adds .otp-modal--native
+ * and the rules at the bottom of this block do the same job.
+ */
+
+/* Hidden until UIkit (class .uk-modal) or the fallback takes over: no flash in the footer. */
+.otp-modal:not(.uk-modal):not(.otp-modal--native) {
+  display: none;
+}
+
+/* The glass card is the visible box, so the UIkit dialog itself is transparent. */
+.otp-modal .uk-modal-dialog.otp-modal__dialog {
+  width: min(37.5rem, calc(100vw - 2rem));
+  padding: 1.9rem;
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.97) 0%, rgba(244, 246, 255, 0.96) 100%);
+  border: 1.5px solid rgba(109, 94, 252, 0.32);
+  border-radius: 1.5rem;
+  box-shadow: 0 24px 60px rgba(30, 27, 75, 0.28);
+  overflow: visible;
+}
+
+@media (max-width: 480px) {
+  .otp-modal .uk-modal-dialog.otp-modal__dialog {
+    padding: 1rem;
+    border-radius: 1.2rem;
+  }
+}
+
+.otp-modal .otp {
+  position: relative;
+  max-width: none;
+  width: 100%;
+  margin: 0;
+}
+
+/* Fallback overlay (no UIkit). */
+.otp-modal--native {
+  position: fixed;
+  inset: 0;
+  z-index: 1050;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 1rem 1rem;
+  overflow-y: auto;
+  background: rgba(30, 27, 75, 0.5);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.otp-modal--native.is-open {
+  display: flex;
+}
+
+.otp-modal--native .otp-modal__dialog {
+  position: relative;
+  margin: auto;
+}
+
+.otp-modal--native .uk-modal-close-outside {
+  position: absolute;
+  inset-block-start: -2.5rem;
+  inset-inline-end: 0;
+  padding: 0.1rem 0.6rem;
+  font-size: 1.8rem;
+  line-height: 1.2;
+  color: #fff;
+  cursor: pointer;
+  background: none;
+  border: 0;
+}
+
+/* open button (modal mode trigger) — always readable */
+.otp-open {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.75rem 1.4rem !important;
+  font: inherit;
+  font-weight: 700 !important;
+  font-size: 0.95rem !important;
+  line-height: 1.3;
+  color: #fff !important;
+  cursor: pointer;
+  background: linear-gradient(135deg, #6d5efc 0%, #4f7cff 55%, #6b8cff 100%) !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  box-shadow: 0 8px 20px rgba(79, 124, 255, 0.35) !important;
+  text-decoration: none !important;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.otp-open:hover,
+.otp-open:focus {
+  filter: brightness(1.06);
+  color: #fff !important;
+  outline: none;
+}
+
+.otp-open:focus-visible {
+  outline: 2px solid #6d5efc;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .otp__life-bar,
+  .otp__input,
+  .otp__btn,
+  .otp__cell,
+  .otp__choice {
+    transition: none;
+  }
+}
+
+
+/* ==========================================================================
+   Style 3 — Modern Gradient + Glass (theme=style3)
+   Applied to: login (phone), OTP code entry, password / set-password steps
+   ========================================================================== */
+
+.otp.style3 {
+  --s3-g1: #667eea;
+  --s3-g2: #764ba2;
+  --s3-g3: #f093fb;
+  --s3-g4: #f5576c;
+  --s3-ok: #10b981;
+  --s3-err: #ef4444;
+  --s3-warn: #f59e0b;
+  --s3-ink: #1f2937;
+  --s3-muted: #6b7280;
+  --s3-bg: #ffffff;
+  --s3-bg2: #f9fafb;
+  --s3-line: #e5e7eb;
+  --s3-line2: #f3f4f6;
+  --s3-radius: 0.75rem;
+  --s3-radius-lg: 1rem;
+  --s3-tr: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+  --otp-accent: var(--s3-g1);
+  --otp-accent-2: var(--s3-g2);
+  --otp-accent-ink: #fff;
+  --otp-danger: var(--s3-err);
+  --otp-danger-soft: rgba(239, 68, 68, 0.12);
+  --otp-ok: var(--s3-ok);
+  --otp-ok-soft: rgba(16, 185, 129, 0.12);
+  --otp-logout-1: var(--s3-g3);
+  --otp-logout-2: var(--s3-g4);
+  --otp-muted: var(--s3-muted);
+  --otp-ink: var(--s3-ink);
+  --otp-line: rgba(102, 126, 234, 0.22);
+  --otp-line-strong: rgba(102, 126, 234, 0.4);
+  --otp-surface: rgba(255, 255, 255, 0.78);
+  --otp-input-bg: var(--s3-bg);
+  --otp-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 0 0 1px rgba(0, 0, 0, 0.05);
+  --otp-radius: var(--s3-radius-lg);
+  --otp-radius-sm: var(--s3-radius);
+  --otp-grad: linear-gradient(135deg, var(--s3-g1) 0%, var(--s3-g2) 100%);
+  --otp-grad-logout: linear-gradient(135deg, var(--s3-g3) 0%, var(--s3-g4) 100%);
+
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  position: relative;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.72) 0%, rgba(255, 255, 255, 0.92) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--s3-radius-lg);
+  box-shadow: var(--otp-shadow);
+  padding: 2rem 1.75rem;
+  color: var(--s3-ink);
+}
+
+.otp.style3::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: linear-gradient(
+    45deg,
+    transparent,
+    rgba(102, 126, 234, 0.1),
+    transparent,
+    rgba(245, 87, 108, 0.1),
+    transparent
+  );
+  animation: s3GradientShift 15s ease infinite;
+  z-index: 0;
+  pointer-events: none;
+}
+
+@keyframes s3GradientShift {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  33% { transform: translate(30px, -30px) rotate(120deg); }
+  66% { transform: translate(-20px, 20px) rotate(240deg); }
+}
+
+.otp.style3 > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ---- Title ---- */
+.otp.style3 .otp__title {
+  font-weight: 700;
+  font-size: 1.25rem;
+  letter-spacing: -0.01em;
+  text-align: center;
+  margin: 0 0 1.5rem;
+  background: linear-gradient(135deg, var(--s3-g1), var(--s3-g2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ---- Alerts / messages ---- */
+.otp.style3 .otp__msg {
+  display: none;
+  padding: 1rem 1.25rem;
+  border-radius: var(--s3-radius);
+  margin-bottom: 1.25rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.08);
+  border-left: 4px solid transparent;
+  animation: s3SlideInDown 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.otp.style3 .otp__msg:not(:empty) {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+html[dir="rtl"] .otp.style3 .otp__msg {
+  border-left: none;
+  border-right: 4px solid transparent;
+}
+
+@keyframes s3SlideInDown {
+  from { opacity: 0; transform: translateY(-16px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.otp.style3 .otp__msg--ok {
+  background: linear-gradient(135deg, #d1fae5, #a7f3d0);
+  color: #065f46;
+  border-color: var(--s3-ok);
+}
+
+.otp.style3 .otp__msg--err {
+  background: linear-gradient(135deg, #fee2e2, #fecaca);
+  color: #991b1b;
+  border-color: var(--s3-err);
+}
+
+/* ---- Steps (phone / password / code / …) ---- */
+.otp.style3 .otp__step {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  animation: s3SlideInUp 0.45s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+@keyframes s3SlideInUp {
+  from { opacity: 0; transform: translateY(24px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* ---- Labels ---- */
+.otp.style3 .otp__label {
+  display: block;
+  margin-bottom: 0.75rem;
+  color: var(--s3-ink);
+  font-weight: 600;
+  font-size: 0.9375rem;
+  letter-spacing: -0.01em;
+  text-align: center;
+}
+
+.otp.style3 .otp__label--sub {
+  text-align: start;
+  margin-bottom: 0.5rem;
+  font-size: 0.875rem;
+  color: var(--s3-muted);
+}
+
+.otp.style3 .otp__label-ico {
+  background: linear-gradient(135deg, var(--s3-g1), var(--s3-g2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.otp.style3 .otp__hint {
+  text-align: center;
+  font-size: 0.875rem;
+  color: var(--s3-muted);
+  line-height: 1.6;
+  margin: 0 0 1.25rem;
+}
+
+/* ---- Phone row (login) ---- */
+.otp.style3 .otp__phone-row {
+  display: flex;
+  gap: 0.75rem;
+  width: 100%;
+  margin-bottom: 1.5rem;
+  box-sizing: border-box;
+}
+
+.otp.style3 .otp__phone-cc {
+  width: 90px;
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-weight: 700;
+  font-size: 1rem;
+  padding: 0.9rem 0.5rem;
+  background: var(--s3-bg2);
+  border: 2px solid var(--s3-line2);
+  border-radius: var(--s3-radius);
+  color: var(--s3-ink);
+  direction: ltr;
+}
+
+.otp.style3 .otp__input--phone {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ---- Inputs (phone, password, text, email) ---- */
+.otp.style3 .otp__input,
+.otp.style3 input[type="tel"],
+.otp.style3 input[type="password"],
+.otp.style3 input[type="text"],
+.otp.style3 input[type="email"] {
+  width: 100%;
+  max-width: 100%;
+  padding: 1rem 1.25rem;
+  border: 2px solid var(--s3-line);
+  border-radius: var(--s3-radius);
+  font-size: 1rem;
+  font-weight: 500;
+  background: var(--s3-bg);
+  color: var(--s3-ink);
+  transition: var(--s3-tr);
+  box-sizing: border-box;
+}
+
+.otp.style3 input[type="tel"],
+.otp.style3 input[type="password"],
+.otp.style3 .otp__input--phone {
+  direction: ltr;
+  text-align: left;
+}
+
+.otp.style3 .otp__input:focus,
+.otp.style3 input:focus {
+  outline: none;
+  border-color: transparent;
+  background: var(--s3-bg);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.15), 0 4px 12px rgba(102, 126, 234, 0.1);
+  transform: translateY(-2px);
+}
+
+.otp.style3 .otp__input--error,
+.otp.style3 input.error {
+  border-color: var(--s3-err);
+  animation: s3Shake 0.5s cubic-bezier(0.36, 0.07, 0.19, 0.97);
+}
+
+@keyframes s3Shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-6px); }
+  20%, 40%, 60%, 80% { transform: translateX(6px); }
+}
+
+/* Spacing between stacked password fields */
+.otp.style3 .otp__step[data-step="password"] .otp__input,
+.otp.style3 .otp__step[data-step="setpassword"] .otp__input,
+.otp.style3 .otp__step[data-step="link"] .otp__input,
+.otp.style3 .otp__step[data-step="register"] .otp__input {
+  margin-bottom: 1rem;
+}
+
+/* ---- Primary / secondary buttons ---- */
+.otp.style3 .otp__btn {
+  width: 100%;
+  max-width: 100%;
+  padding: 1rem 1.5rem;
+  border: none;
+  border-radius: var(--s3-radius);
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: var(--s3-tr);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  position: relative;
+  overflow: hidden;
+  letter-spacing: 0.02em;
+  margin: 0.25rem 0 0.75rem;
+  box-sizing: border-box;
+  text-decoration: none;
+}
+
+.otp.style3 .otp__btn::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.22), transparent);
+  opacity: 0;
+  transition: opacity 0.3s ease;
+}
+
+.otp.style3 .otp__btn:hover::before {
+  opacity: 1;
+}
+
+.otp.style3 .otp__btn--primary {
+  background: linear-gradient(135deg, var(--s3-g1), var(--s3-g2));
+  color: #fff;
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.otp.style3 .otp__btn--primary:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
+}
+
+.otp.style3 .otp__btn--primary:active {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+}
+
+.otp.style3 .otp__btn--primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.otp.style3 .otp__btn-ico {
+  font-size: 1.1em;
+  line-height: 1;
+}
+
+/* ---- Link buttons (resend, change phone, password login, …) ---- */
+.otp.style3 .otp__link {
+  background: none;
+  border: none;
+  color: var(--s3-g1);
+  cursor: pointer;
+  text-decoration: none;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  padding: 0.5rem 0.25rem;
+  margin: 0.15rem 0;
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  transition: var(--s3-tr);
+}
+
+.otp.style3 .otp__link::after {
+  content: '';
+  position: absolute;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 2px;
+  background: linear-gradient(90deg, var(--s3-g1), var(--s3-g2));
+  transition: width 0.3s ease;
+}
+
+.otp.style3 .otp__link:hover {
+  color: var(--s3-g2);
+}
+
+.otp.style3 .otp__link:hover::after {
+  width: 70%;
+}
+
+.otp.style3 .otp__link:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.otp.style3 .otp__link:disabled:hover::after {
+  width: 0;
+}
+
+.otp.style3 .otp__row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+  justify-content: center;
+  margin-top: 0.5rem;
+}
+
+/* ---- OTP code cells ---- */
+.otp.style3 .otp__code {
+  margin: 1.25rem 0 1.5rem;
+  text-align: center;
+}
+
+.otp.style3 .otp__cells {
+  display: flex;
+  gap: 0.65rem;
+  justify-content: center;
+  direction: ltr;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+
+.otp.style3 .otp__cell {
+  width: 3.4rem !important;
+  height: 3.9rem !important;
+  text-align: center;
+  font-size: 1.7rem;
+  font-weight: 700;
+  border: 2px solid var(--s3-line);
+  border-radius: var(--s3-radius);
+  background: var(--s3-bg);
+  color: var(--s3-ink);
+  transition: var(--s3-tr);
+  flex-shrink: 0;
+  padding: 0 !important;
+  box-sizing: border-box;
+}
+
+.otp.style3 .otp__cell:focus {
+  outline: none;
+  border-color: transparent;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.22), 0 8px 20px rgba(102, 126, 234, 0.15);
+  transform: scale(1.08);
+  z-index: 2;
+}
+
+/* ---- Timer / progress bar under OTP ---- */
+.otp.style3 .otp__life {
+  width: 100%;
+  height: 10px;
+  background: rgba(102, 126, 234, 0.12);
+  border-radius: 20px;
+  overflow: hidden;
+  margin-top: 0.75rem;
+  border: 1px solid rgba(102, 126, 234, 0.15);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.otp.style3 .otp__life-bar {
+  display: block;
+  height: 100%;
+  width: 100%;
+  transform-origin: left center;
+  background: linear-gradient(135deg, var(--s3-g1), var(--s3-g2));
+  border-radius: 20px;
+  transition: transform 0.4s linear, background 0.3s ease;
+  position: relative;
+  overflow: hidden;
+}
+
+.otp.style3 .otp__life-bar::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.35), transparent);
+  animation: s3Shimmer 2s infinite;
+}
+
+@keyframes s3Shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* ---- Choice cards (new user / old account) ---- */
+.otp.style3 .otp__choice {
+  display: block;
+  width: 100%;
+  padding: 1rem 1.15rem;
+  margin: 0.6rem 0;
+  background: var(--s3-bg);
+  border: 2px solid var(--s3-line);
+  border-radius: var(--s3-radius);
+  font-weight: 600;
+  color: var(--s3-muted);
+  text-align: start;
+  cursor: pointer;
+  transition: var(--s3-tr);
+  box-sizing: border-box;
+}
+
+.otp.style3 .otp__choice strong {
+  display: block;
+  color: var(--s3-ink);
+  font-size: 1rem;
+  margin-bottom: 0.2rem;
+}
+
+.otp.style3 .otp__choice:hover {
+  border-color: var(--s3-g1);
+  color: var(--s3-g1);
+  background: linear-gradient(135deg, rgba(102, 126, 234, 0.08), rgba(118, 75, 162, 0.08));
+  transform: translateY(-2px);
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.12);
+}
+
+/* ---- Signed-in card ---- */
+.otp.style3.otp--signed-in {
+  padding: 1.75rem;
+}
+
+.otp.style3 .otp-user__name {
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--s3-g1), var(--s3-g2));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.otp.style3 .otp-user__btn--profile {
+  background: linear-gradient(135deg, var(--s3-g1), var(--s3-g2)) !important;
+  color: #fff !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  box-shadow: 0 4px 14px rgba(102, 126, 234, 0.35) !important;
+}
+
+.otp.style3 .otp-user__btn--logout {
+  background: linear-gradient(135deg, var(--s3-g3), var(--s3-g4)) !important;
+  color: #fff !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  box-shadow: 0 4px 14px rgba(245, 87, 108, 0.35) !important;
+}
+
+/* ---- Modal open button ---- */
+.otp-open.style3,
+button.otp-open.style3 {
+  background: linear-gradient(135deg, var(--s3-g1), var(--s3-g2)) !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  box-shadow: 0 8px 20px rgba(102, 126, 234, 0.35) !important;
+  color: #fff !important;
+}
+
+.otp-modal .otp.style3 {
+  max-width: 28rem;
+  margin: 0 auto;
+}
+
+/* ---- RTL placeholders ---- */
+html[dir="rtl"] .otp.style3 .otp__input:not([type="tel"]):not([type="password"])::placeholder {
+  direction: rtl;
+  text-align: right;
+}
+
+html[dir="rtl"] .otp.style3 input[type="password"]::placeholder {
+  direction: rtl;
+  text-align: right;
+}
+
+html[dir="rtl"] .otp.style3 .otp__input--phone::placeholder,
+html[dir="rtl"] .otp.style3 input[type="tel"]::placeholder {
+  direction: ltr;
+  text-align: left;
+}
+
+/* ---- Responsive ---- */
+@media (max-width: 640px) {
+  .otp.style3 {
+    padding: 1.5rem 1.25rem;
+  }
+  .otp.style3 .otp__input,
+  .otp.style3 input[type="tel"],
+  .otp.style3 input[type="password"] {
+    padding: 0.875rem 1rem;
+    font-size: 0.9375rem;
+  }
+  .otp.style3 .otp__btn {
+    padding: 0.875rem 1.25rem;
+    font-size: 0.9375rem;
+  }
+  .otp.style3 .otp__cell {
+    width: 2.9rem !important;
+    height: 3.4rem !important;
+    font-size: 1.45rem;
+  }
+  .otp.style3 .otp__cells {
+    gap: 0.45rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .otp.style3 {
+    padding: 1.25rem 1rem;
+  }
+  .otp.style3 .otp__phone-cc {
+    width: 78px;
+    padding: 0.7rem 0.35rem;
+    font-size: 0.875rem;
+  }
+  .otp.style3 .otp__cell {
+    width: 2.55rem !important;
+    height: 3.1rem !important;
+    font-size: 1.3rem !important;
+  }
+  .otp.style3 .otp__btn {
+    padding: 0.75rem 1rem !important;
+    font-size: 0.875rem !important;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .otp.style3,
+  .otp.style3 *,
+  .otp.style3 *::before,
+  .otp.style3 *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@media (prefers-color-scheme: dark) {
+  .otp.style3 {
+    --s3-ink: #f9fafb;
+    --s3-muted: #d1d5db;
+    --s3-bg: #1f2937;
+    --s3-bg2: #374151;
+    --s3-line: #4b5563;
+    --s3-line2: #374151;
+    background: linear-gradient(135deg, rgba(31, 41, 55, 0.92) 0%, rgba(55, 65, 81, 0.92) 100%);
+    color: #f9fafb;
+  }
+  .otp.style3 .otp__input,
+  .otp.style3 input {
+    background: #1f2937;
+    color: #f9fafb;
+    border-color: #4b5563;
+  }
+  .otp.style3 .otp__phone-cc {
+    background: #374151;
+    border-color: #4b5563;
+    color: #f9fafb;
+  }
+  .otp.style3 .otp__cell {
+    background: #1f2937;
+    color: #f9fafb;
+    border-color: #4b5563;
+  }
+  .otp.style3 .otp__choice {
+    background: #1f2937;
+    border-color: #4b5563;
+  }
+  .otp.style3 .otp__choice strong {
+    color: #f9fafb;
+  }
+  .otp.style3 .otp__life {
+    background: rgba(102, 126, 234, 0.2);
+  }
+}
+
+/* Compatibility: same rules if someone uses moduleclass_sfx with mod-advanced-login style3 */
+.mod-advanced-login.style3 .otp__input,
+.mod-advanced-login.style3 .otp__btn,
+.mod-advanced-login.style3 .otp__cell {
+  /* inherits via .otp.style3 when both classes present */
+}
+
+/* ---- Personnel photo: fixed high-clarity slot ---- */
+.otp-user__avatar {
+  width: 6rem !important;
+  height: 6rem !important;
+  min-width: 6rem;
+  min-height: 6rem;
+  overflow: hidden;
+  animation: none !important;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+}
+
+.otp-user__avatar img,
+.otp-user__avatar [data-avatar-img] {
+  display: block;
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none;
+  object-fit: cover;
+  object-position: center;
+  border-radius: 50%;
+  image-rendering: auto;
+  -webkit-user-drag: none;
+}
+
+.otp-user__avatar svg {
+  width: 2.5rem;
+  height: 2.5rem;
+  opacity: 0.95;
+}
+
+.otp-user__photo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  width: 100%;
+  margin-bottom: 0.35rem;
+}
+
+.otp-user__btn--avatar,
+.otp-user__btn--camera {
+  flex: 1 1 auto;
+  min-width: 8rem;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.otp-user__btn--camera {
+  background: linear-gradient(135deg, #10b981, #059669) !important;
+  color: #fff !important;
+  border: 0 !important;
+  border-radius: 999px !important;
+  box-shadow: 0 4px 14px rgba(16, 185, 129, 0.35) !important;
+}
+
+/* Live camera modal */
+.otp-cam {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.72);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.otp-cam[hidden] {
+  display: none !important;
+}
+
+.otp-cam__dialog {
+  width: min(100%, 26rem);
+  background: #0f172a;
+  border-radius: 1rem;
+  overflow: hidden;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.45);
+}
+
+.otp-cam__video {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  background: #000;
+  transform: scaleX(-1); /* mirror selfie */
+}
+
+.otp-cam__bar {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.85rem;
+  background: #1e293b;
+}
+
+.otp-cam__bar .otp-user__btn {
+  flex: 1;
+  margin: 0;
+}
+
+@media (max-width: 480px) {
+  .otp-user__avatar {
+    width: 5.25rem !important;
+    height: 5.25rem !important;
+    min-width: 5.25rem;
+    min-height: 5.25rem;
+  }
+}
+
+/* Avatar upload busy overlay + progress */
+.otp-user__avatar-busy {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(15, 23, 42, 0.55);
+  z-index: 2;
+}
+.otp-user__avatar-busy[hidden] { display: none !important; }
+.otp-user__spinner {
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 3px solid rgba(255,255,255,0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: otpSpin 0.7s linear infinite;
+}
+@keyframes otpSpin {
+  to { transform: rotate(360deg); }
+}
+.otp-user__progress {
+  margin: 0.35rem 0 0.75rem;
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #667eea;
+  text-align: center;
+}
+.otp-user__progress[hidden] { display: none !important; }
+.otp-user__msg {
+  min-height: 1.25rem;
+  margin: 0.25rem 0 0.75rem;
+  font-size: 0.9rem;
+  text-align: center;
+}
+.otp-user__msg.otp__msg--ok { color: #059669; }
+.otp-user__msg.otp__msg--error { color: #dc2626; }
+.otp-user__msg.otp__msg--info { color: #4f46e5; }
+.otp-user__photo-actions button:disabled {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+a.otp-user__btn.is-disabled,
+.otp-user button:disabled {
+  opacity: 0.55 !important;
+  pointer-events: none !important;
+  cursor: not-allowed !important;
+}
+
+.otp-user__btn--camera:not(:disabled) {
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+.otp-cam[hidden] { display: none !important; }
+.otp-cam:not([hidden]) { display: flex !important; }
+.otp-user__photo-hint {
+  width: 100%;
+  margin: 0.35rem 0 0;
+  font-size: 0.85rem;
+  color: #64748b;
+  text-align: center;
+}
+
+.otp-welcome {
+  position: fixed;
+  inset: 0;
+  z-index: 99999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(6px);
+  padding: 1rem;
+  direction: rtl;
+  text-align: center;
+}
+.otp-welcome[hidden] { display: none !important; }
+.otp-welcome__card {
+  background: #fff;
+  border-radius: 1.25rem;
+  padding: 1.5rem 1.25rem;
+  max-width: 22rem;
+  width: 100%;
+  box-shadow: 0 20px 50px rgba(0,0,0,.25);
+}
+.otp-welcome__emoji { font-size: 2.5rem; line-height: 1; margin-bottom: .5rem; }
+.otp-welcome__title { margin: 0 0 .35rem; font-size: 1.25rem; font-weight: 800; color: #1e293b; }
+.otp-welcome__text { margin: 0 0 1rem; color: #64748b; font-size: .95rem; }
+.otp-welcome__card .otp-user__btn { width: 100%; margin: .35rem 0; }
