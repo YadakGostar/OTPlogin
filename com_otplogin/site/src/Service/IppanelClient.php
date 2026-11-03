@@ -40,7 +40,11 @@ final class IppanelClient
             return trim((string) OTPLOGIN_IPPANEL_KEY);
         }
         $key = trim((string) $this->params->get('api_key', ''));
-        return preg_replace('/^(?:Bearer|API\s*TOKEN)\s*[:=]?\s+/i', '', $key) ?: $key;
+        // Strip common paste mistakes: Bearer/API TOKEN prefix, quotes, whitespace/newlines
+        $key = preg_replace('/[\r\n\t]+/', '', $key) ?? $key;
+        $key = str_replace(['"', "'", ' '], '', $key);
+        $key = preg_replace('/^(?:Bearer|API\s*TOKEN|Token)\s*[:=]?\s*/i', '', $key) ?? $key;
+        return trim($key);
     }
 
     public function apiKeySource(): string
@@ -121,6 +125,9 @@ final class IppanelClient
         }
 
         $detail = $json['meta']['message_code'] ?? $json['meta']['message'] ?? $err;
+        if ($status === 401) {
+            $detail = 'Invalid token — کلید API یا توکن IPPanel نامعتبر است. از پنل IPPanel مسیر Developers → Access Keys یک Access Key بسازید و فقط خود کلید را (بدون Bearer) در تنظیمات بچسبانید.';
+        }
 
         return [
             'ok'     => false,

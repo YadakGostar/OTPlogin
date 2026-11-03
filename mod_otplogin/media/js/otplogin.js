@@ -37,19 +37,26 @@
     // Fall back to current hostname — never send a foreign RP ID to WebAuthn.
     return host;
   };
-  const passkeyErr = (err) => {
+  const passkeyErr = (err, isAdmin) => {
     const name = err && err.name ? err.name : '';
     const msg = err && err.message ? String(err.message) : '';
     if (name === 'NotAllowedError' || /timed out|not allowed/i.test(msg)) {
-      return 'عملیات لغو شد یا زمان آن تمام شد. اگر خطا درباره RP ID بود، فیلد «شناسه دامنه» را در تنظیمات خالی بگذارید.';
+      // Technical RP ID hint only for Super User / admin
+      if (isAdmin) {
+        return 'عملیات لغو شد یا زمان آن تمام شد. اگر خطا درباره RP ID بود، فیلد «شناسه دامنه» را در تنظیمات خالی بگذارید.';
+      }
+      return 'عملیات لغو شد یا زمان آن تمام شد.';
     }
     if (/relying party|rp id|registrable domain/i.test(msg)) {
-      return 'دامنه Passkey با آدرس سایت یکی نیست. در تنظیمات، «شناسه دامنه (RP ID)» را خالی بگذارید یا دقیقاً دامنه سایت را وارد کنید (مثلا example.com).';
+      if (isAdmin) {
+        return 'دامنه Passkey با آدرس سایت یکی نیست. در تنظیمات، «شناسه دامنه (RP ID)» را خالی بگذارید یا دقیقاً دامنه سایت را وارد کنید (مثلا example.com).';
+      }
+      return 'ورود با این دستگاه ممکن نشد. دوباره تلاش کنید.';
     }
     if (!window.isSecureContext && location.hostname !== 'localhost') {
       return 'Passkey فقط روی HTTPS کار می‌کند.';
     }
-    return msg || 'خطای Passkey';
+    return isAdmin ? (msg || 'خطای Passkey') : 'ورود با Passkey ناموفق بود.';
   };
 
   class OtpLogin {
@@ -57,6 +64,22 @@
       this.root = root;
       this.endpoint = root.dataset.endpoint;
       this.returnUrl = root.dataset.return || '';
+      // Joomla login links: /login?return=base64(url)
+      try {
+        const q = new URLSearchParams(window.location.search || '');
+        const raw = q.get('return') || '';
+        if (raw) {
+          let decoded = '';
+          try {
+            decoded = atob(raw.replace(/-/g, '+').replace(/_/g, '/'));
+          } catch (e1) {
+            try { decoded = decodeURIComponent(escape(atob(raw))); } catch (e2) { decoded = ''; }
+          }
+          if (decoded && (decoded.indexOf(location.origin) === 0 || decoded.charAt(0) === '/')) {
+            this.returnUrl = decoded;
+          }
+        }
+      } catch (e) {}
       this.ts = root.dataset.ts || '';
       this.formStartedAt = Math.floor(Date.now() / 1000);
       this.length = parseInt(root.dataset.length, 10) || 5;
@@ -95,6 +118,7 @@
     bind() {
       const on = (el, ev, fn) => { if (el) el.addEventListener(ev, fn); };
       on(this.steps.phone, 'submit', (e) => { e.preventDefault(); this.sendCode(); });
+      if (this.steps.userpass) on(this.steps.userpass, 'submit', (e) => { e.preventDefault(); this.userPassLogin(); });
       on(this.steps.code, 'submit', (e) => { e.preventDefault(); this.verify(); });
       on(this.steps.register, 'submit', (e) => { e.preventDefault(); this.register(); });
       on(this.steps.link, 'submit', (e) => { e.preventDefault(); this.link(); });
@@ -150,7 +174,7 @@
         const publicKey = {
           challenge: b64urlToBuf(o.challenge),
           rpId,
-          timeout: o.timeout || 120000,
+          timeout: o.timeout || 30000,
           userVerification: o.userVerification || 'preferred',
         };
         if (o.allowCredentials && o.allowCredentials.length) {
@@ -172,34 +196,40 @@
         if (r.ok) this.finish(r);
         else this.say(r.message || this.t.network, 'error');
       } catch (err) {
-        this.say(passkeyErr(err), 'error');
+        this.say(passkeyErr(err, this.root && this.root.getAttribute('data-admin') === '1'), 'error');
       }
     }
 
     async qrStart() {
       try {
         const r = await this.post('qrcreate', {});
-        if (!r.ok) { this.say(r.message || this.t.network, 'error'); return; }
-        this.qrToken = r.token || r.payload;
+        if (!r.ok) {
+          this.say(r.message || this.t.network, 'error');
+          return;
+        }
+        this.qrToken = r.token || '';
+        // Must be a full HTTPS URL — raw token opens as a fake domain on phones
+        this.qrUrl = r.confirm_url || r.payload || r.confirm_hint || '';
+        if (!this.qrUrl || this.qrUrl.indexOf('http') !== 0) {
+          this.qrUrl = (window.location.origin || '') + '/index.php?option=com_otplogin&task=ajax.qrscan&token=' + encodeURIComponent(this.qrToken);
+        }
         if (this.steps.qr) this.show('qr');
         const tokenEl = this.root.querySelector('[data-qr-token]');
-        if (tokenEl) tokenEl.textContent = (this.qrToken || '').slice(0, 16) + '…';
+        if (tokenEl) tokenEl.textContent = (this.qrToken || '').slice(0, 12) + '…';
         const canvas = this.root.querySelector('[data-qr-canvas]');
-        if (canvas && this.qrToken) {
-          // Offline-friendly: draw token text; optional external QR image if available
+        if (canvas && this.qrUrl) {
           const ctx = canvas.getContext('2d');
           ctx.fillStyle = '#fff';
           ctx.fillRect(0, 0, 200, 200);
-          ctx.fillStyle = '#111';
-          ctx.font = '12px monospace';
-          ctx.textAlign = 'center';
-          const lines = (this.qrToken.match(/.{1,16}/g) || []);
-          lines.forEach((ln, i) => ctx.fillText(ln, 100, 70 + i * 16));
           const img = new Image();
           img.crossOrigin = 'anonymous';
           img.onload = () => { ctx.drawImage(img, 0, 0, 200, 200); };
-          img.onerror = () => {};
-          img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(this.qrToken);
+          img.onerror = () => {
+            ctx.fillStyle = '#111';
+            ctx.font = '10px monospace';
+            ctx.fillText('QR URL', 70, 100);
+          };
+          img.src = 'https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=' + encodeURIComponent(this.qrUrl);
         }
         this.qrPoll();
       } catch (err) {
@@ -235,17 +265,16 @@
       if (first) setTimeout(() => first.focus(), 30);
     }
 
-    /** Wrap Latin digits / phone-like tokens so they stay LTR inside RTL text. */
+    /** Keep phone-like tokens readable in RTL without splitting digits. */
     ltrPhone(s) {
-      const t = String(s || '');
-      // LRI … PDI (U+2066 … U+2069) isolates the number as LTR
-      return '\u2066' + t + '\u2069';
+      // Leading/trailing LRM (U+200E) — does not break the number mid-string
+      return '\u200E' + String(s || '') + '\u200E';
     }
 
     say(text, kind = '') {
-      // Preserve LTR isolates already present; otherwise inject for phone-like sequences
-      const safe = String(text || '').replace(/(0?9\d{2,3}\*{0,3}\d{2,4}|\+98\d[\d*]*)/g, (m) => this.ltrPhone(m));
-      this.msg.textContent = safe;
+      // Do not inject bidi isolates into full 10-digit numbers (they were splitting 91234567|89).
+      // CSS unicode-bidi:plaintext on .otp__msg handles mixed RTL/LTR correctly.
+      this.msg.textContent = String(text || '');
       if (kind) this.msg.dataset.kind = kind; else delete this.msg.dataset.kind;
     }
 
@@ -339,13 +368,37 @@
      * otherwise:    first submit of the phone form, which asks the server whether to
      *               request a password or to send a code ("lookup").
      */
+    async userPassLogin() {
+      const form = this.steps.userpass;
+      if (!form) return;
+      const username = (form.elements.username && form.elements.username.value || '').trim();
+      const password = form.elements.password ? form.elements.password.value : '';
+      if (!username || !password) {
+        this.say(this.t.userPassEmpty || this.t.passEmpty, 'error');
+        return;
+      }
+      this.busy(form, true);
+      const r = await this.post('passworduser', {
+        username,
+        password,
+        return: this.root.dataset.return || '',
+      });
+      this.busy(form, false);
+      if (!r.ok) {
+        this.say(r.message || this.t.network, 'error');
+        return;
+      }
+      if (r.action === 'done' || r.action === 'setpassword') this.finish(r);
+    }
+
     async sendCode(isResend = false, fromPassword = false) {
       const form = this.steps.phone;
       const direct = isResend || fromPassword;
       const raw = direct ? this.phone : form.elements.phone.value;
       const digits = toLatin(raw).replace(/\D/g, '');
 
-      if (!/^(0|98|0098)?9\d{9}$/.test(digits)) {
+      // Only 10 digits starting with 9 — leading zero is rejected
+      if (digits.charAt(0) === '0' || !/^9\d{9}$/.test(digits)) {
         this.say(this.t.phoneInvalid, 'error');
         form.elements.phone.focus();
         return;
@@ -362,7 +415,7 @@
         const ch = await this.post('powchallenge', {});
         if (ch && ch.ok && ch.enabled && ch.challenge) {
           this.say(this.t.powWorking || 'در حال بررسی امنیتی…', 'info');
-          const nonce = await solvePow(ch.challenge, ch.difficulty || 16);
+          const nonce = await solvePow(ch.challenge, ch.difficulty || 13);
           powPayload = { pow_challenge: ch.challenge, pow_nonce: nonce };
         }
       } catch (powErr) {
@@ -390,7 +443,7 @@
 
       // A code was already sent a moment ago: let the user type it instead of blocking them.
       if (r.error === 'cooldown') {
-        this.maskedPhone = digits.replace(/^(0|98|0098)/, '0').replace(/^(\d{4})\d{3}(\d{4})$/, '$1***$2');
+        this.maskedPhone = ('0' + digits).replace(/^(\d{4})\d{3}(\d{4})$/, '$1***$2');
         this.enterCodeStep(0, r.retry_after);
         this.say(r.message, 'error');
         return;
@@ -577,6 +630,13 @@
     finish(r) {
       this.redirectTo = r.redirect || '';
 
+      try {
+        sessionStorage.removeItem('otp_welcome_gate');
+        sessionStorage.removeItem('otp_welcome_avatar');
+        sessionStorage.removeItem('otp_welcome_sec');
+        if (r.redirect) sessionStorage.setItem('otp_redirect', r.redirect);
+      } catch (e) { /* private mode */ }
+
       if (r.action === 'setpassword') {
         if (r.token) this.tokenName = r.token;
         this.minLen = r.min || this.minLen;
@@ -589,21 +649,20 @@
         return;
       }
 
-      if (r.need_avatar) {
-        try {
-          sessionStorage.setItem('otp_welcome_avatar', '1');
-          if (r.redirect) sessionStorage.setItem('otp_redirect', r.redirect);
-        } catch (e) { /* private mode */ }
-      }
-
       this.say(this.t.done, 'ok');
-      window.location.href = r.redirect || window.location.href;
+      const dest = (r.redirect || this.returnUrl || '').trim();
+      if (dest) {
+        window.location.href = dest;
+      } else {
+        // No return target → stay / soft reload so signed-in panel appears
+        window.location.reload();
+      }
     }
   }
 
 
   /** Proof-of-work: find nonce so sha256(challenge|nonce) has leading zero bits. */
-  const solvePow = async (challenge, difficulty, timeoutMs = 8000) => {
+  const solvePow = async (challenge, difficulty, timeoutMs = 5000) => {
     const enc = new TextEncoder();
     const start = Date.now();
     let nonce = 0;
@@ -816,51 +875,64 @@
         cameraFile.click();
       };
 
+      let camOpening = false;
       const openCam = async () => {
-        // Mobile: OS camera via capture=user is more reliable than getUserMedia
-        if (isMobile() && cameraFile) {
-          openNativeCamera();
-          return;
-        }
-        if (!window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-          say('برای استفاده از دوربین به HTTPS نیاز است', 'error');
-          return;
-        }
-        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-          openNativeCamera();
-          return;
-        }
+        // Prevent dozens of parallel getUserMedia / native pickers
+        if (camOpening) return;
+        if (camStream && camModal && !camModal.hidden) return;
+        camOpening = true;
         try {
-          camStream = await navigator.mediaDevices.getUserMedia({
-            audio: false,
-            video: {
-              facingMode: { ideal: 'user' },
-              width: { ideal: 1280 },
-              height: { ideal: 1280 },
-            },
-          });
-          if (camVideo) {
-            camVideo.setAttribute('playsinline', 'true');
-            camVideo.setAttribute('muted', 'true');
-            camVideo.srcObject = camStream;
-            await camVideo.play().catch(() => {});
+          // Close any previous stream before opening a new one
+          if (camStream) {
+            camStream.getTracks().forEach((tr) => tr.stop());
+            camStream = null;
           }
-          if (camModal) camModal.hidden = false;
-          // Do NOT setBusy here — snap/cancel must stay clickable
-        } catch (err) {
+          // Mobile: OS camera via capture=user is more reliable than getUserMedia
+          if (isMobile() && cameraFile) {
+            openNativeCamera();
+            return;
+          }
+          if (!window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
+            say('برای استفاده از دوربین به HTTPS نیاز است', 'error');
+            return;
+          }
+          if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+            openNativeCamera();
+            return;
+          }
           try {
             camStream = await navigator.mediaDevices.getUserMedia({
               audio: false,
-              video: true,
+              video: {
+                facingMode: { ideal: 'user' },
+                width: { ideal: 1280 },
+                height: { ideal: 1280 },
+              },
             });
             if (camVideo) {
+              camVideo.setAttribute('playsinline', 'true');
+              camVideo.setAttribute('muted', 'true');
               camVideo.srcObject = camStream;
               await camVideo.play().catch(() => {});
             }
             if (camModal) camModal.hidden = false;
-          } catch (err2) {
-            openNativeCamera();
+          } catch (err) {
+            try {
+              camStream = await navigator.mediaDevices.getUserMedia({
+                audio: false,
+                video: true,
+              });
+              if (camVideo) {
+                camVideo.srcObject = camStream;
+                await camVideo.play().catch(() => {});
+              }
+              if (camModal) camModal.hidden = false;
+            } catch (err2) {
+              openNativeCamera();
+            }
           }
+        } finally {
+          camOpening = false;
         }
       };
 
@@ -872,14 +944,96 @@
         });
       }
 
-      // Welcome gate after login: force live photo prompt
+
+      // Inline profile edit (name + username)
+      const profileOpen = root.querySelector('[data-profile-open]');
+      const profilePanel = root.querySelector('[data-profile-panel]');
+      const profileSave = root.querySelector('[data-profile-save]');
+      const profileCancel = root.querySelector('[data-profile-cancel]');
+      const profileMsg = root.querySelector('[data-profile-msg]');
+      const nameEl = root.querySelector('.otp-user__name');
+
+      if (profileOpen && profilePanel) {
+        profileOpen.addEventListener('click', (e) => {
+          e.preventDefault();
+          profilePanel.hidden = false;
+          profileOpen.hidden = true;
+          if (profileMsg) profileMsg.textContent = '';
+          const first = root.querySelector('[data-profile-first]');
+          if (first) first.focus();
+        });
+      }
+      if (profileCancel && profilePanel) {
+        profileCancel.addEventListener('click', (e) => {
+          e.preventDefault();
+          profilePanel.hidden = true;
+          if (profileOpen) profileOpen.hidden = false;
+        });
+      }
+      if (profileSave) {
+        profileSave.addEventListener('click', async (e) => {
+          e.preventDefault();
+          const first = (root.querySelector('[data-profile-first]') || {}).value || '';
+          const last = (root.querySelector('[data-profile-last]') || {}).value || '';
+          const uname = (root.querySelector('[data-profile-user]') || {}).value || '';
+          if (!String(first).trim() && !String(last).trim()) {
+            if (profileMsg) profileMsg.textContent = 'لطفاً نام و نام خانوادگی را وارد کنید.';
+            return;
+          }
+          profileSave.disabled = true;
+          if (profileMsg) profileMsg.textContent = '…';
+          const r = await post('saveprofile', {
+            firstname: String(first).trim(),
+            lastname: String(last).trim(),
+            username: String(uname).trim(),
+          });
+          profileSave.disabled = false;
+          if (!r.ok) {
+            if (profileMsg) profileMsg.textContent = r.message || 'خطا در ذخیره';
+            return;
+          }
+          if (nameEl && r.name) nameEl.textContent = r.name;
+          if (profileMsg) profileMsg.textContent = r.message || 'پروفایل ذخیره شد.';
+          setTimeout(() => {
+            if (profilePanel) profilePanel.hidden = true;
+            if (profileOpen) profileOpen.hidden = false;
+          }, 800);
+        });
+      }
+
+      // Welcome panel after login/register: keep open for N seconds (photo + profile)
       const welcome = root.querySelector('[data-otp-welcome]');
       const welcomeCam = root.querySelector('[data-welcome-camera]');
       const welcomeSkip = root.querySelector('[data-welcome-skip]');
-      const hideWelcome = () => {
+      const timerEl = root.querySelector('[data-welcome-timer]');
+      let welcomeTimer = null;
+
+      const closeWelcomeGate = async (skipServer) => {
+        root.classList.remove('otp--welcome-open');
+        // Restore root to original place if we moved it into a body portal
+        if (root._otpWelcomePortal && root._otpWelcomePlaceholder) {
+          try {
+            root._otpWelcomePlaceholder.parentNode.insertBefore(root, root._otpWelcomePlaceholder);
+            root._otpWelcomePlaceholder.remove();
+            root._otpWelcomePortal.remove();
+          } catch (e) {}
+          root._otpWelcomePortal = null;
+          root._otpWelcomePlaceholder = null;
+        }
         if (welcome) welcome.hidden = true;
-        try { sessionStorage.removeItem('otp_welcome_avatar'); } catch (e) {}
+        if (timerEl) timerEl.hidden = true;
+        if (welcomeTimer) { clearInterval(welcomeTimer); welcomeTimer = null; }
+        try {
+          sessionStorage.removeItem('otp_welcome_avatar');
+          sessionStorage.removeItem('otp_welcome_gate');
+          sessionStorage.removeItem('otp_welcome_sec');
+          localStorage.setItem(welcomeUserKey, '1');
+        } catch (e) {}
+        if (!skipServer) {
+          try { await post('skipwelcome', {}); } catch (err) {}
+        }
       };
+
       if (welcomeCam) {
         welcomeCam.addEventListener('click', (e) => {
           e.preventDefault();
@@ -889,17 +1043,67 @@
       if (welcomeSkip) {
         welcomeSkip.addEventListener('click', async (e) => {
           e.preventDefault();
-          hideWelcome();
-          try { await post('skipwelcome', {}); } catch (err) {}
+          await closeWelcomeGate(false);
         });
       }
-      // Auto-open when flag present (session or data attribute)
-      let forceWelcome = root.hasAttribute('data-welcome-avatar');
-      try { if (sessionStorage.getItem('otp_welcome_avatar') === '1') forceWelcome = true; } catch (e) {}
-      if (forceWelcome && welcome) {
-        welcome.hidden = false;
-        // small delay so layout paints
-        setTimeout(() => { try { openCam(); } catch (e) {} }, 400);
+
+      const welcomeUserKey = 'otp_welcome_done_' + (root.getAttribute('data-user-id') || '0');
+      // Auto welcome disabled — panel only when user taps profile / camera
+      let forceWelcome = false;
+      let leftSec = 0;
+      try {
+        sessionStorage.removeItem('otp_welcome_gate');
+        sessionStorage.removeItem('otp_welcome_avatar');
+        sessionStorage.removeItem('otp_welcome_sec');
+        localStorage.setItem(welcomeUserKey, '1');
+      } catch (e) {}
+
+      const openWelcomeGate = () => {
+        // Move module into a full-screen portal on body so parent modals/overflow cannot clip it
+        if (!root._otpWelcomePortal) {
+          // Only one welcome portal on the page
+          document.querySelectorAll('[data-otp-welcome-portal]').forEach((p) => {
+            try { p.remove(); } catch (e) {}
+          });
+          const placeholder = document.createComment('otp-welcome-placeholder');
+          if (root.parentNode) root.parentNode.insertBefore(placeholder, root);
+          const portal = document.createElement('div');
+          portal.className = 'otp-welcome-portal';
+          portal.setAttribute('data-otp-welcome-portal', '1');
+          document.body.appendChild(portal);
+          portal.appendChild(root);
+          root._otpWelcomePortal = portal;
+          root._otpWelcomePlaceholder = placeholder;
+        }
+        try { localStorage.setItem(welcomeUserKey, '1'); } catch (e) {}
+        root.classList.add('otp--welcome-open');
+        if (welcome) welcome.hidden = false;
+        if (timerEl) {
+          timerEl.hidden = false;
+          const tick = () => {
+            timerEl.textContent = leftSec > 0
+              ? ('این پنجره ' + leftSec + ' ثانیه باز می‌ماند')
+              : '';
+          };
+          tick();
+          if (welcomeTimer) clearInterval(welcomeTimer);
+          welcomeTimer = setInterval(() => {
+            leftSec -= 1;
+            tick();
+            if (leftSec <= 0) {
+              closeWelcomeGate(false); // mark first-login welcome as seen
+            }
+          }, 1000);
+        } else {
+          setTimeout(() => closeWelcomeGate(false), leftSec * 1000);
+        }
+        // Do not auto-open camera (especially on desktop it spawns many permission dialogs).
+        // User taps «گرفتن عکس زنده» when ready.
+      };
+
+      if (forceWelcome) {
+        // Defer one frame so layout/CSS is ready
+        requestAnimationFrame(() => setTimeout(openWelcomeGate, 50));
       }
 
       if (camClose) {
@@ -1032,7 +1236,7 @@
                 displayName: o.user.displayName,
               },
               pubKeyCredParams: o.pubKeyCredParams,
-              timeout: o.timeout || 120000,
+              timeout: o.timeout || 30000,
               attestation: o.attestation || 'none',
               authenticatorSelection: o.authenticatorSelection || {
                 residentKey: 'preferred',
@@ -1068,7 +1272,7 @@
             if (r.ok) say('OK', 'ok');
             else say(r.message || 'error', 'error');
           } catch (err) {
-            say(passkeyErr(err), 'error');
+            say(passkeyErr(err, root.getAttribute('data-admin') === '1'), 'error');
           }
         });
       }
@@ -1093,6 +1297,20 @@
       if (!root.__otp) root.__otp = new OtpLogin(root);
     });
     initSignedIn();
+    document.querySelectorAll("[data-pass-toggle]").forEach((btn) => {
+      if (btn.__otpPassToggle) return;
+      btn.__otpPassToggle = true;
+      btn.addEventListener("click", (e) => {
+        e.preventDefault();
+        const wrap = btn.closest(".otp-passwrap");
+        const input = wrap && wrap.querySelector("input");
+        if (!input) return;
+        const show = input.type === "password";
+        input.type = show ? "text" : "password";
+        btn.textContent = show ? "🙈" : "👁";
+      });
+    });
+
     initModals();
   };
 

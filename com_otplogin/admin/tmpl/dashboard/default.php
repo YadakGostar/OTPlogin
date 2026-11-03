@@ -310,9 +310,114 @@ $logClass = static function (string $line): string {
   background: #22c55e; flex-shrink: 0;
   box-shadow: 0 0 0 3px rgba(34,197,94,.2);
 }
+
+#otplogin-dashboard .otp-version-bar {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: .6rem 1rem;
+    margin: .75rem 0 1.25rem;
+    padding: .85rem 1.1rem;
+    border-radius: .85rem;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: #e2e8f0;
+    font-size: .9rem;
+    box-shadow: 0 4px 14px rgba(15, 23, 42, .18);
+}
+#otplogin-dashboard .otp-version-bar .otp-ver-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+    background: #334155;
+    color: #f8fafc;
+    padding: .25rem .65rem;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: .82rem;
+    letter-spacing: .02em;
+}
+#otplogin-dashboard .otp-version-bar .otp-lic {
+    opacity: .75;
+    font-size: .8rem;
+}
+#otplogin-dashboard .otp-version-bar .otp-upd-ok {
+    color: #86efac;
+    font-weight: 600;
+}
+#otplogin-dashboard .otp-version-bar .otp-upd-new {
+    color: #fde68a;
+    font-weight: 700;
+}
+#otplogin-dashboard .otp-version-bar .otp-upd-btn {
+    margin-inline-start: auto;
+    background: #38bdf8;
+    color: #0f172a;
+    border: 0;
+    border-radius: .5rem;
+    padding: .4rem .9rem;
+    font-weight: 700;
+    font-size: .82rem;
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: .35rem;
+}
+#otplogin-dashboard .otp-version-bar .otp-upd-btn:hover {
+    background: #7dd3fc;
+    color: #0f172a;
+}
+#otplogin-dashboard .otp-version-bar .otp-upd-muted {
+    opacity: .65;
+    font-size: .8rem;
+}
+
 </style>
 
 <div id="otplogin-dashboard">
+
+    <div class="otp-version-bar" role="status">
+        <span class="otp-ver-badge">v<?php echo $this->escape($this->extensionVersion ?: '—'); ?></span>
+        <span class="otp-lic"><?php echo $this->escape(Text::_('COM_OTPLOGIN_LICENSE_SHORT')); ?>: <?php echo $this->escape($this->licenseLabel ?: 'GPL-2.0-or-later'); ?></span>
+        <?php if (!empty($this->updateAvailable) && $this->latestVersion !== '') : ?>
+            <span class="otp-upd-new">
+                <?php echo Text::sprintf('COM_OTPLOGIN_UPDATE_AVAILABLE', $this->escape($this->latestVersion)); ?>
+            </span>
+            <?php if ($this->updateDownloadUrl !== '') : ?>
+                <a class="otp-upd-btn" href="<?php echo $this->escape($this->updateDownloadUrl); ?>" target="_blank" rel="noopener noreferrer">
+                    <?php echo Text::_('COM_OTPLOGIN_UPDATE_DOWNLOAD'); ?>
+                </a>
+            <?php endif; ?>
+            <a class="otp-upd-btn" href="index.php?option=com_installer&amp;view=update">
+                <?php echo Text::_('COM_OTPLOGIN_UPDATE_JOOMLA'); ?>
+            </a>
+            <span class="otp-upd-muted"><?php echo Text::_('COM_OTPLOGIN_UPDATE_HINT'); ?></span>
+        <?php elseif ($this->latestVersion !== '' && !$this->updateAvailable) : ?>
+            <span class="otp-upd-ok"><?php echo Text::_('COM_OTPLOGIN_UPDATE_CURRENT'); ?></span>
+        <?php elseif (!empty($this->updateCheckError)) : ?>
+            <span class="otp-upd-muted"><?php echo Text::_('COM_OTPLOGIN_UPDATE_CHECK_FAIL'); ?></span>
+            <a class="otp-upd-btn" style="background:#94a3b8" href="index.php?option=com_installer&amp;view=update" target="_blank" rel="noopener noreferrer">
+                <?php echo Text::_('COM_OTPLOGIN_UPDATE_JOOMLA'); ?>
+            </a>
+        <?php else : ?>
+            <span class="otp-upd-muted"><?php echo Text::_('COM_OTPLOGIN_UPDATE_UNKNOWN'); ?></span>
+            <a class="otp-upd-btn" style="background:#94a3b8" href="index.php?option=com_installer&amp;view=update" target="_blank" rel="noopener noreferrer">
+                <?php echo Text::_('COM_OTPLOGIN_UPDATE_JOOMLA'); ?>
+            </a>
+        <?php endif; ?>
+    </div>
+
+    <div class="otp-online-pill">
+        <i aria-hidden="true"></i>
+        <?php
+        $onlineCount = (int) $this->onlineUsers;
+        echo $onlineCount > 0
+            ? Text::sprintf('COM_OTPLOGIN_ONLINE_NOW', $onlineCount)
+            : Text::_('COM_OTPLOGIN_ONLINE_NONE');
+        ?>
+        <span class="text-muted fw-normal">· <?php echo Text::sprintf('COM_OTPLOGIN_LOGINS_TODAY', (string) (int) $this->logins24h); ?></span>
+    </div>
+
+
 <div class="otp-panel otp-health" style="margin-bottom:1.25rem;padding:1.25rem;border-radius:1.1rem;background:#fff;box-shadow:0 4px 18px rgba(15,23,42,.05);">
   <h3 style="margin:0 0 .75rem;font-size:1.05rem;font-weight:800;"><?php echo Text::_('COM_OTPLOGIN_HEALTH'); ?></h3>
   <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(10rem,1fr));gap:.75rem;">
@@ -344,11 +449,7 @@ $logClass = static function (string $line): string {
         </div>
     <?php endif; ?>
 
-    <div class="otp-online-pill">
-        <i aria-hidden="true"></i>
-        <?php echo Text::sprintf('COM_OTPLOGIN_ONLINE_NOW', (int) $this->onlineUsers); ?>
-        <span class="text-muted fw-normal">· <?php echo Text::sprintf('COM_OTPLOGIN_LOGINS_TODAY', (int) $this->logins24h); ?></span>
-    </div>
+    
 
     <div class="otp-grid-cards">
         <?php foreach ($this->cards as $card) :
@@ -416,10 +517,23 @@ $logClass = static function (string $line): string {
                         <?php else : ?>
                             <?php foreach ($this->events as $e) :
                                 $success = $isSuccessKind((string) $e->kind);
-                                $who = trim((string) ($e->user_name ?: $e->user_username ?: $e->subject ?: '—'));
+                                $who = trim((string) ($e->user_name ?: $e->user_username ?: ''));
+                                if ($who === '') {
+                                    $sub = trim((string) ($e->subject ?? ''));
+                                    // Numeric subject is user id without a join match, or a phone.
+                                    $who = $sub !== '' ? $sub : '—';
+                                }
+                                $kindLabel = match ((string) $e->kind) {
+                                    'login_pass' => 'رمز',
+                                    'login' => 'پیامک',
+                                    'register' => 'ثبت‌نام',
+                                    'link' => 'اتصال',
+                                    'pass_fail' => 'رمز×',
+                                    default => '',
+                                };
                                 ?>
                                 <tr>
-                                    <td dir="auto"><?php echo $this->escape($who); ?></td>
+                                    <td dir="auto"><?php echo $this->escape($who); ?><?php if ($kindLabel !== '') : ?> <small class="text-muted">(<?php echo $this->escape($kindLabel); ?>)</small><?php endif; ?></td>
                                     <td>
                                         <span class="otp-badge otp-badge--<?php echo $success ? 'ok' : 'fail'; ?>">
                                             <?php echo $success ? '✓ ' . Text::_('COM_OTPLOGIN_STATUS_OK') : '× ' . Text::_('COM_OTPLOGIN_STATUS_FAIL'); ?>
@@ -439,7 +553,7 @@ $logClass = static function (string $line): string {
     <form action="<?php echo Route::_('index.php?option=com_otplogin&task=test.send'); ?>" method="post" class="row g-2 align-items-end mb-4">
         <div class="col-auto">
             <label class="form-label" for="otp-test-phone"><?php echo Text::_('COM_OTPLOGIN_TEST_PHONE'); ?></label>
-            <input type="tel" dir="ltr" class="form-control" id="otp-test-phone" name="phone" placeholder="09123456789" required>
+            <input type="tel" dir="ltr" class="form-control" id="otp-test-phone" name="phone" placeholder="9123456789" required>
         </div>
         <div class="col-auto">
             <button type="submit" class="btn btn-primary"><?php echo Text::_('COM_OTPLOGIN_TEST_SEND'); ?></button>
@@ -529,46 +643,70 @@ $logClass = static function (string $line): string {
         <ul class="otp-log mb-3 otp-log-wrap">
             <?php
             $eventLabels = [
-                'token' => 'نشست منقضی',
-                'bot' => 'مشکوک به ربات',
-                'method' => 'درخواست نامعتبر',
-                'phone' => 'شماره نامعتبر',
-                'blocked' => 'مسدود شده',
-                'cooldown' => 'زمان انتظار',
-                'sms_failed' => 'خطای پیامک',
-                'wrong_code' => 'کد نادرست',
-                'expired' => 'کد منقضی',
-                'too_many' => 'تلاش بیش از حد',
-                'pass_invalid' => 'رمز نادرست',
-                'session_limit' => 'سقف نشست',
-                'pow_required' => 'ضدربات',
-                'pow_invalid' => 'ضدربات ناموفق',
-                'avatar_upload' => 'آپلود عکس',
+                'token'          => 'نشست منقضی شد — صفحه را تازه کنید',
+                'bot'            => 'درخواست مشکوک به ربات',
+                'method'         => 'درخواست نامعتبر',
+                'phone'          => 'شماره موبایل نامعتبر',
+                'blocked'        => 'دسترسی موقتاً مسدود شد',
+                'cooldown'       => 'کمی صبر کنید و دوباره کد بخواهید',
+                'phone_limit'    => 'سقف درخواست این شماره پر شد',
+                'phone_daily'    => 'سقف روزانه این شماره پر شد',
+                'ip_limit'       => 'سقف درخواست این شبکه پر شد',
+                'ip_daily'       => 'سقف روزانه این شبکه پر شد',
+                'global_limit'   => 'سرویس پیامک موقتاً در دسترس نیست',
+                'sms_failed'     => 'ارسال پیامک ناموفق بود',
+                'wrong_code'     => 'کد تأیید نادرست بود',
+                'expired'        => 'کد تأیید منقضی شد — کد جدید بگیرید',
+                'too_many'       => 'تلاش بیش از حد — کد جدید بگیرید',
+                'pass_invalid'   => 'شماره یا رمز عبور نادرست',
+                'session'        => 'اعتبار تأیید شماره تمام شد',
+                'session_limit'  => 'سقف پیامک این نشست پر شد',
+                'pow_required'   => 'بررسی امنیتی لازم است',
+                'pow_invalid'    => 'بررسی امنیتی ناموفق بود',
+                'qr_expired'     => 'کد QR منقضی شد — یک کد جدید بسازید',
+                'qr_invalid'     => 'کد QR نامعتبر است',
+                'qr_denied'      => 'ورود با QR رد شد',
+                'avatar_upload'  => 'بارگذاری عکس ناموفق بود',
+                'login_failed'   => 'ورود انجام نشد',
+                'not_configured' => 'پیامک هنوز تنظیم نشده است',
+                'not_registered' => 'حسابی برای این شماره نیست',
             ];
             foreach ($this->log as $line) :
-                $parts = explode("	", $line);
-                $when  = $parts[0] ?? '';
-                $event = $parts[1] ?? '';
-                $ip    = $parts[2] ?? '';
-                $detail = $parts[5] ?? ($parts[3] ?? '');
-                // AJAX_FAIL:token → token
+                $parts  = explode("\t", $line);
+                $when   = trim((string) ($parts[0] ?? ''));
+                $event  = trim((string) ($parts[1] ?? ''));
+                $ip     = trim((string) ($parts[2] ?? ''));
+                $detail = trim((string) ($parts[5] ?? ''));
+
                 $code = $event;
                 if (str_starts_with($event, 'AJAX_FAIL:')) {
                     $code = substr($event, 10);
                 }
-                $label = $eventLabels[$code] ?? $code;
-                // Soften date display
+                // If detail is a known error code (new format), prefer it
+                if ($detail !== '' && isset($eventLabels[$detail])) {
+                    $code = $detail;
+                }
+                // Old logs stored the full Persian sentence in detail — ignore long sentences
+                if (mb_strlen($detail) > 40 || str_contains($detail, ' ') || str_contains($detail, 'است')) {
+                    $detail = '';
+                }
+
+                $label = $eventLabels[$code] ?? ('خطا: ' . $code);
+
                 $whenShow = $when;
                 if (preg_match('/^(\d{4}-\d{2}-\d{2})T(\d{2}:\d{2})/', $when, $m)) {
                     $whenShow = $m[1] . ' ' . $m[2];
                 }
-                // Clean detail: strip leading dots/spaces from RTL glitches
-                $detail = trim($detail, " 	
-
- .");
-                $row = trim($label . ($detail !== '' ? ' — ' . $detail : '') . ($ip !== '' ? ' | IP: ' . $ip : '') . ($whenShow !== '' ? ' | ' . $whenShow : ''));
                 ?>
-                <li class="<?php echo $logClass($line); ?>"><?php echo $this->escape($row); ?></li>
+                <li class="<?php echo $logClass($line); ?>">
+                    <span class="otp-log__msg"><?php echo $this->escape($label); ?></span>
+                    <?php if ($ip !== '') : ?>
+                        <span class="otp-log__meta" dir="ltr"><?php echo $this->escape($ip); ?></span>
+                    <?php endif; ?>
+                    <?php if ($whenShow !== '') : ?>
+                        <span class="otp-log__meta" dir="ltr"><?php echo $this->escape($whenShow); ?></span>
+                    <?php endif; ?>
+                </li>
             <?php endforeach; ?>
         </ul>
     <?php endif; ?>

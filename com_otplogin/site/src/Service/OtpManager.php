@@ -54,7 +54,7 @@ final class OtpManager
     {
         $now = time();
 
-        if (random_int(1, 50) === 1) {
+        if (random_int(1, 200) === 1) {
             $this->limiter->purge();
         }
 

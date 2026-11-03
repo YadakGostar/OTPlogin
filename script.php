@@ -14,14 +14,13 @@ class Pkg_OtploginInstallerScript
 {
     private string $minPhp = '8.3.0';
     private string $minJoomla = '6.0.0';
+    private string $schemaVersion = '1.1.16';
 
     public function preflight(string $type, InstallerAdapter $parent): bool
     {
-        $app = Factory::getApplication();
-
         if (version_compare(PHP_VERSION, $this->minPhp, '<')) {
-            $app->enqueueMessage(
-                'OTP Login requires PHP ' . $this->minPhp . ' or newer (current: ' . PHP_VERSION . ').',
+            Factory::getApplication()->enqueueMessage(
+                'OTP Login requires PHP ' . $this->minPhp . '+ (current: ' . PHP_VERSION . ').',
                 'error'
             );
 
@@ -29,29 +28,234 @@ class Pkg_OtploginInstallerScript
         }
 
         if (version_compare(JVERSION, $this->minJoomla, '<')) {
-            $app->enqueueMessage(
-                'OTP Login requires Joomla ' . $this->minJoomla . ' or newer (current: ' . JVERSION . ').',
+            Factory::getApplication()->enqueueMessage(
+                'OTP Login requires Joomla ' . $this->minJoomla . '+ (current: ' . JVERSION . ').',
                 'error'
             );
 
             return false;
         }
 
-        if (!\function_exists('curl_init')) {
-            $app->enqueueMessage('The PHP cURL extension is required to reach IPPanel.', 'warning');
-        }
+        return true;
+    }
+
+    public function postflight(string $type, InstallerAdapter $parent): bool
+    {
+        $this->mergeParams();
+        $this->ensureDatabase();
+        $this->ensureUpdateSite();
 
         return true;
     }
 
-    /** Restore all non-IPPanel component settings while preserving IPPanel credentials. */
-    private function resetNonIppanelDefaults(): void
+    /**
+     * Register the remote update server so Joomla can find and install new versions
+     * automatically (System → Update → Extensions), regardless of the ZIP filename.
+     * The live download URL always comes from the hosted update feed XML.
+     */
+    private function ensureUpdateSite(): void
     {
-        $db = Factory::getContainer()->get(DatabaseInterface::class);
-        $row = $db->setQuery(
-            'SELECT `extension_id`, `params` FROM ' . $db->quoteName('#__extensions')
-            . ' WHERE `type` = ' . $db->quote('component') . ' AND `element` = ' . $db->quote('com_otplogin')
-        )->loadObject();
+        $location = 'https://www.yadakgostar.co/updates/pkg_otplogin.xml';
+        $name     = 'OTP Login Updates';
+
+        try {
+            $db = Factory::getContainer()->get(DatabaseInterface::class);
+        } catch (\Throwable $e) {
+            return;
+        }
+
+        try {
+            // Package row in #__extensions
+            $pkgId = (int) $db->setQuery(
+                'SELECT `extension_id` FROM ' . $db->quoteName('#__extensions')
+                . ' WHERE `type` = ' . $db->quote('package')
+                . ' AND `element` = ' . $db->quote('pkg_otplogin')
+                . ' LIMIT 1'
+            )->loadResult();
+
+            // Component as fallback link target
+            $comId = (int) $db->setQuery(
+                'SELECT `extension_id` FROM ' . $db->quoteName('#__extensions')
+                . ' WHERE `type` = ' . $db->quote('component')
+                . ' AND `element` = ' . $db->quote('com_otplogin')
+                . ' LIMIT 1'
+            )->loadResult();
+
+            $siteId = (int) $db->setQuery(
+                'SELECT `update_site_id` FROM ' . $db->quoteName('#__update_sites')
+                . ' WHERE `location` = ' . $db->quote($location)
+                . ' LIMIT 1'
+            )->loadResult();
+
+            if ($siteId <= 0) {
+                $db->setQuery(
+                    'INSERT INTO ' . $db->quoteName('#__update_sites')
+                    . ' (`name`, `type`, `location`, `enabled`, `last_check_timestamp`)'
+                    . ' VALUES ('
+                    . $db->quote($name) . ', '
+                    . $db->quote('extension') . ', '
+                    . $db->quote($location) . ', 1, 0)'
+                )->execute();
+                $siteId = (int) $db->insertid();
+            } else {
+                $db->setQuery(
+                    'UPDATE ' . $db->quoteName('#__update_sites')
+                    . ' SET `name` = ' . $db->quote($name)
+                    . ', `type` = ' . $db->quote('extension')
+                    . ', `enabled` = 1'
+                    . ' WHERE `update_site_id` = ' . $siteId
+                )->execute();
+            }
+
+            if ($siteId <= 0) {
+                return;
+            }
+
+            foreach (array_filter([$pkgId, $comId]) as $extId) {
+                $exists = (int) $db->setQuery(
+                    'SELECT COUNT(*) FROM ' . $db->quoteName('#__update_sites_extensions')
+                    . ' WHERE `update_site_id` = ' . $siteId
+                    . ' AND `extension_id` = ' . (int) $extId
+                )->loadResult();
+
+                if ($exists === 0) {
+                    $db->setQuery(
+                        'INSERT INTO ' . $db->quoteName('#__update_sites_extensions')
+                        . ' (`update_site_id`, `extension_id`) VALUES ('
+                        . $siteId . ', ' . (int) $extId . ')'
+                    )->execute();
+                }
+            }
+        } catch (\Throwable $e) {
+            // Never fail install because of update-site registration
+        }
+    }
+
+    /** Create missing tables and align #__schemas so Joomla no longer reports outdated tables. */
+    private function ensureDatabase(): void
+    {
+        try {
+            $db = Factory::getContainer()->get(DatabaseInterface::class);
+        } catch (\Throwable $e) {
+            return;
+        }
+
+        $statements = [
+            "CREATE TABLE IF NOT EXISTS `#__otplogin_codes` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `phone` varchar(11) NOT NULL,
+  `code_hash` char(64) NOT NULL,
+  `attempts` smallint unsigned NOT NULL DEFAULT 0,
+  `used` tinyint unsigned NOT NULL DEFAULT 0,
+  `expires_at` int unsigned NOT NULL,
+  `ip` varchar(45) NOT NULL DEFAULT '',
+  `created_at` int unsigned NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_phone_used` (`phone`, `used`),
+  KEY `idx_created` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+            "CREATE TABLE IF NOT EXISTS `#__otplogin_events` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `kind` varchar(24) NOT NULL,
+  `subject` varchar(64) DEFAULT NULL,
+  `ip` varchar(45) NOT NULL DEFAULT '',
+  `created_at` int unsigned NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_kind_subject` (`kind`, `subject`, `created_at`),
+  KEY `idx_kind_ip` (`kind`, `ip`, `created_at`),
+  KEY `idx_created` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+            "CREATE TABLE IF NOT EXISTS `#__otplogin_blocks` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `scope` varchar(10) NOT NULL,
+  `target` varchar(64) NOT NULL,
+  `blocked_until` int unsigned NOT NULL,
+  `reason` varchar(100) NOT NULL DEFAULT '',
+  `created_at` int unsigned NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_scope_target` (`scope`, `target`),
+  KEY `idx_until` (`blocked_until`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+            "CREATE TABLE IF NOT EXISTS `#__otplogin_qr` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `token` char(64) NOT NULL,
+  `status` varchar(16) NOT NULL DEFAULT 'pending',
+  `user_id` int unsigned DEFAULT NULL,
+  `ip` varchar(45) NOT NULL DEFAULT '',
+  `ua_hash` char(64) NOT NULL DEFAULT '',
+  `confirm_ip` varchar(45) NOT NULL DEFAULT '',
+  `expires_at` int unsigned NOT NULL,
+  `created_at` int unsigned NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_token` (`token`),
+  KEY `idx_status_exp` (`status`, `expires_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+            "CREATE TABLE IF NOT EXISTS `#__otplogin_webauthn` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `user_id` int unsigned NOT NULL,
+  `credential_id` varchar(512) NOT NULL,
+  `public_key` text NOT NULL,
+  `sign_count` int unsigned NOT NULL DEFAULT 0,
+  `transports` varchar(128) NOT NULL DEFAULT '',
+  `label` varchar(100) NOT NULL DEFAULT '',
+  `created_at` int unsigned NOT NULL,
+  `last_used_at` int unsigned NOT NULL DEFAULT 0,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uq_credential` (`credential_id`(191)),
+  KEY `idx_user` (`user_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
+        ];
+
+        foreach ($statements as $sql) {
+            try {
+                $db->setQuery($sql)->execute();
+            } catch (\Throwable $e) {
+                // continue — table may already exist with compatible structure
+            }
+        }
+
+        try {
+            $extId = (int) $db->setQuery(
+                'SELECT `extension_id` FROM ' . $db->quoteName('#__extensions')
+                . ' WHERE `type` = ' . $db->quote('component')
+                . ' AND `element` = ' . $db->quote('com_otplogin')
+                . ' LIMIT 1'
+            )->loadResult();
+
+            if ($extId > 0) {
+                // Remove duplicate schema rows then set a single matching version
+                $db->setQuery(
+                    'DELETE FROM ' . $db->quoteName('#__schemas')
+                    . ' WHERE ' . $db->quoteName('extension_id') . ' = ' . $extId
+                )->execute();
+
+                $db->setQuery(
+                    'INSERT INTO ' . $db->quoteName('#__schemas')
+                    . ' (' . $db->quoteName('extension_id') . ', ' . $db->quoteName('version_id') . ')'
+                    . ' VALUES (' . $extId . ', ' . $db->quote($this->schemaVersion) . ')'
+                )->execute();
+            }
+        } catch (\Throwable $e) {
+            // ignore
+        }
+    }
+
+    private function mergeParams(): void
+    {
+        try {
+            $db = Factory::getContainer()->get(DatabaseInterface::class);
+        } catch (\Throwable $e) {
+            return;
+        }
+
+        try {
+            $row = $db->setQuery(
+                'SELECT `extension_id`, `params` FROM ' . $db->quoteName('#__extensions')
+                . ' WHERE `type` = ' . $db->quote('component') . ' AND `element` = ' . $db->quote('com_otplogin')
+            )->loadObject();
+        } catch (\Throwable $e) {
+            return;
+        }
 
         if (!$row) {
             return;
@@ -60,17 +264,8 @@ class Pkg_OtploginInstallerScript
         $current = json_decode((string) $row->params, true);
         $current = is_array($current) ? $current : [];
 
-        $ippanel = [];
-        foreach ([
-            'api_key', 'base_url', 'from_number', 'pattern_code', 'pattern_var',
-            'request_timeout', 'dry_run',
-        ] as $key) {
-            if (array_key_exists($key, $current)) {
-                $ippanel[$key] = $current[$key];
-            }
-        }
-
         $defaults = [
+            'sms_provider' => 'ippanel',
             'code_length' => 6,
             'code_ttl' => 120,
             'max_verify_attempts' => 5,
@@ -90,128 +285,27 @@ class Pkg_OtploginInstallerScript
             'registration_enabled' => 1,
             'new_user_group' => 2,
             'ask_name' => 'required',
-            'ask_email' => 'optional',
-            'fake_email_domain' => '',
+            'ask_email' => 'off',
             'link_enabled' => 1,
-            'block_superusers' => 1,
-            'lookup_username' => 1,
-            'profile_key' => 'otplogin.phone',
-            'lookup_field_id' => 0,
-            'redirect_url' => '',
+            'block_superusers' => 0,
             'password_login' => 1,
             'password_set' => 'optional',
             'password_min_length' => 8,
-            'password_fail_max' => 5,
-            'password_ip_fail_max' => 15,
-            'lookup_hourly_max' => 30,
-            'telegram_enabled' => 0,
-            'telegram_bot_token' => '',
-            'telegram_chat_id' => '',
-            'telegram_proxy' => '',
-            'telegram_timeout' => 15,
-            'telegram_on_sms_error' => 1,
-            'telegram_on_login' => 0,
-            'telegram_on_register' => 1,
-            'telegram_on_verify_fail' => 0,
+            'avatar_enabled' => 1,
+            'passkey_enabled' => 1,
+            'qr_login_enabled' => 1,
         ];
 
-        $merged = array_merge($defaults, $ippanel);
-        if (isset($current['rules'])) {
-            $merged['rules'] = $current['rules'];
+        $merged = array_merge($defaults, $current);
+        $json = json_encode($merged, JSON_UNESCAPED_UNICODE);
+
+        try {
+            $db->setQuery(
+                'UPDATE ' . $db->quoteName('#__extensions')
+                . ' SET `params` = ' . $db->quote($json)
+                . ' WHERE `extension_id` = ' . (int) $row->extension_id
+            )->execute();
+        } catch (\Throwable $e) {
         }
-
-        $db->setQuery(
-            'UPDATE ' . $db->quoteName('#__extensions') . ' SET `params` = '
-            . $db->quote(json_encode($merged, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES))
-            . ' WHERE `extension_id` = ' . (int) $row->extension_id
-        )->execute();
-    }
-
-
-    /** Fill only missing/unsafe security defaults without wiping admin customisation. */
-    private function applyRecommendedDefaults(): void
-    {
-        $db = Factory::getContainer()->get(DatabaseInterface::class);
-        $row = $db->setQuery(
-            'SELECT `extension_id`, `params` FROM ' . $db->quoteName('#__extensions')
-            . ' WHERE `type` = ' . $db->quote('component') . ' AND `element` = ' . $db->quote('com_otplogin')
-        )->loadObject();
-
-        if (!$row) {
-            return;
-        }
-
-        $params = json_decode((string) $row->params, true);
-        $params = is_array($params) ? $params : [];
-        $changed = false;
-
-        // Unlimited global SMS cap is unsafe for SMS-pumping; seed 500 when still 0/empty.
-        if (!isset($params['global_daily_max']) || (int) $params['global_daily_max'] === 0) {
-            $params['global_daily_max'] = 500;
-            $changed = true;
-        }
-
-        if (!isset($params['ip_header']) || trim((string) $params['ip_header']) === '') {
-            $params['ip_header'] = 'HTTP_X_FORWARDED_FOR';
-            $changed = true;
-        }
-
-        if (!isset($params['session_hourly_max'])) {
-            $params['session_hourly_max'] = 5;
-            $changed = true;
-        }
-
-        if (!isset($params['pow_enabled'])) {
-            $params['pow_enabled'] = 1;
-            $changed = true;
-        }
-
-        if (!isset($params['pow_difficulty'])) {
-            $params['pow_difficulty'] = 16;
-            $changed = true;
-        }
-
-        if (!$changed) {
-            return;
-        }
-
-        $db->setQuery(
-            'UPDATE ' . $db->quoteName('#__extensions') . ' SET `params` = '
-            . $db->quote(json_encode($params, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES))
-            . ' WHERE `extension_id` = ' . (int) $row->extension_id
-        )->execute();
-    }
-
-    public function postflight(string $type, InstallerAdapter $parent): bool
-    {
-        if ($type === 'uninstall') {
-            return true;
-        }
-
-        $db = Factory::getContainer()->get(DatabaseInterface::class);
-        $db->setQuery(
-            'UPDATE ' . $db->quoteName('#__extensions') . ' SET `enabled` = 1'
-            . ' WHERE `type` = ' . $db->quote('plugin') . ' AND `folder` = ' . $db->quote('authentication')
-            . ' AND `element` = ' . $db->quote('otplogin')
-        )->execute();
-
-        $db->setQuery(
-            'UPDATE ' . $db->quoteName('#__extensions') . ' SET `enabled` = 1, `ordering` = 99'
-            . ' WHERE `type` = ' . $db->quote('plugin') . ' AND `folder` = ' . $db->quote('user')
-            . ' AND `element` = ' . $db->quote('otploginavatar')
-        )->execute();
-
-        // Do NOT wipe admin settings on update. Only fill unsafe/missing security defaults.
-        if ($type === 'install') {
-            $this->resetNonIppanelDefaults();
-            Factory::getApplication()->enqueueMessage(
-                'OTP Login installed. Open Components → OTP Login → Options for IPPanel settings, then publish the OTP Login module.',
-                'message'
-            );
-        } else {
-            $this->applyRecommendedDefaults();
-        }
-
-        return true;
     }
 }

@@ -271,7 +271,7 @@ final class AccountService
             return 'user_blocked';
         }
 
-        if ((int) $this->params->get('block_superusers', 1) === 1 && $user->authorise('core.admin')) {
+        if ((int) $this->params->get('block_superusers', 0) === 1 && $user->authorise('core.admin')) {
             return 'not_allowed';
         }
 
@@ -287,12 +287,61 @@ final class AccountService
         )->loadResult() > 0;
     }
 
-    /** @return array{id?:int, error?:string} */
-    public function createUser(string $phone, string $name, string $email): array
+    /**
+     * Validate email domain against disposable blocklist and optional allowlist.
+     * Returns error code string or null if OK / empty email.
+     */
+    public function validateEmailDomain(string $email): ?string
     {
-        if ($email !== '' && $this->emailExists($email)) {
-            return ['error' => 'email_taken'];
+        $email = strtolower(trim($email));
+        if ($email === '' || !str_contains($email, '@')) {
+            return null;
         }
+
+        $domain = substr(strrchr($email, '@'), 1);
+        if ($domain === false || $domain === '') {
+            return 'email_domain';
+        }
+
+        // Allowlist takes precedence when enabled
+        if ((int) $this->params->get('email_allowlist_enabled', 0) === 1) {
+            $allowed = $this->parseDomainList((string) $this->params->get('email_allowed_domains', ''));
+            if ($allowed && !in_array($domain, $allowed, true)) {
+                return 'email_domain';
+            }
+        }
+
+        // Disposable / temporary blocklist
+        if ((int) $this->params->get('email_block_disposable', 1) === 1) {
+            $blocked = $this->parseDomainList((string) $this->params->get('email_blocked_domains', ''));
+            if ($blocked && in_array($domain, $blocked, true)) {
+                return 'email_disposable';
+            }
+        }
+
+        return null;
+    }
+
+    /** @return list<string> */
+    private function parseDomainList(string $raw): array
+    {
+        $out = [];
+        foreach (preg_split('/[\r\n,;]+/', $raw) ?: [] as $line) {
+            $d = strtolower(trim($line));
+            $d = ltrim($d, '@');
+            if ($d !== '' && str_contains($d, '.')) {
+                $out[] = $d;
+            }
+        }
+        return array_values(array_unique($out));
+    }
+
+    /** @return array{id?:int, error?:string} */
+    public function createUser(string $phone, string $name, string $email = ''): array
+    {
+        // Registration never collects email — always use a placeholder.
+        // Existing accounts can still sign in with username/email + password.
+        $email = '';
 
         $groupId = (int) $this->params->get('new_user_group', 0)
             ?: (int) ComponentHelper::getParams('com_users')->get('new_usertype', 2);
@@ -303,7 +352,7 @@ final class AccountService
         $data = [
             'name'         => $name !== '' ? $name : $phone,
             'username'     => $phone,
-            'email'        => $email !== '' ? $email : $this->placeholderEmail($phone),
+            'email'        => $this->placeholderEmail($phone),
             'password'     => $password,
             'password2'    => $password,
             'groups'       => [$groupId],
@@ -535,6 +584,68 @@ final class AccountService
         return true;
     }
 
+    /**
+     * Update display name and optional username for the logged-in user.
+     *
+     * @return array{ok?:bool,error?:string,name?:string,username?:string}
+     */
+    public function updateProfile(int $userId, string $firstName, string $lastName, string $username): array
+    {
+        $user = $this->user($userId);
+        if (!$user) {
+            return ['error' => 'login_failed'];
+        }
+
+        $firstName = trim($firstName);
+        $lastName  = trim($lastName);
+        $username  = trim($username);
+
+        if ($firstName === '' && $lastName === '') {
+            return ['error' => 'name'];
+        }
+
+        $fullName = trim($firstName . ' ' . $lastName);
+        if ($fullName === '') {
+            return ['error' => 'name'];
+        }
+
+        if (mb_strlen($fullName) > 150) {
+            return ['error' => 'name'];
+        }
+
+        $data = ['name' => $fullName];
+
+        if ($username !== '' && $username !== (string) $user->username) {
+            if (mb_strlen($username) < 3 || mb_strlen($username) > 150) {
+                return ['error' => 'username_invalid'];
+            }
+            if (!preg_match('/^[\p{L}\p{N}._@-]+$/u', $username)) {
+                return ['error' => 'username_invalid'];
+            }
+            $taken = (int) $this->db->setQuery(
+                'SELECT `id` FROM ' . $this->db->quoteName('#__users')
+                . ' WHERE (`username` = ' . $this->db->quote($username)
+                . ' OR LOWER(`email`) = ' . $this->db->quote(strtolower($username)) . ')'
+                . ' AND `id` <> ' . $userId
+                . ' LIMIT 1'
+            )->loadResult();
+            if ($taken > 0) {
+                return ['error' => 'username_taken'];
+            }
+            $data['username'] = $username;
+        }
+
+        if (!$user->bind($data) || !$user->save()) {
+            return ['error' => 'profile_save'];
+        }
+
+        return [
+            'ok'       => true,
+            'name'     => (string) $user->name,
+            'username' => (string) $user->username,
+        ];
+    }
+
     /** Finds an old account by username or e-mail, for the "I already have an account" flow. */
     public function findForLink(string $identifier): ?int
     {
@@ -586,9 +697,13 @@ final class AccountService
         ]);
 
         try {
+            $days = max(0, min(365, (int) $this->params->get('session_lifetime_days', 0)));
+            // Longer session requires Joomla remember-me cookie (survives session GC).
+            $remember = ((int) $this->params->get('remember_default', 0) === 1) || $days > 0;
+
             $result = $this->app->login(
                 ['username' => $user->username, 'password' => $ticket],
-                ['silent' => true, 'remember' => false, 'action' => 'core.login.site', 'otplogin' => true]
+                ['silent' => true, 'remember' => $remember, 'action' => 'core.login.site', 'otplogin' => true]
             );
         } catch (\Throwable $e) {
             // Never surface English ArgumentCountError etc. to the visitor
@@ -607,20 +722,140 @@ final class AccountService
 
         $session->clear('otplogin.ticket');
 
+        if ($result === true) {
+            $days = max(0, min(365, (int) $this->params->get('session_lifetime_days', 0)));
+            if ($days > 0) {
+                $this->applySessionLifetime($days);
+            }
+        }
+
         return $result === true;
     }
 
-    /** Only same-site URLs are allowed as post-login destination. */
+    /**
+     * Extend the browser session cookie (and remember-me cookies if present)
+     * so the user stays logged in for the configured number of days.
+     */
+    private function applySessionLifetime(int $days): void
+    {
+        $lifetime = $days * 86400;
+        $expires  = time() + $lifetime;
+        $secure   = false;
+
+        try {
+            $secure = method_exists($this->app, 'isSSLConnection') && $this->app->isSSLConnection();
+        } catch (\Throwable $e) {
+            $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+        }
+
+        $path     = (string) ($this->app->get('cookie_path', '/') ?: '/');
+        $domain   = (string) $this->app->get('cookie_domain', '');
+        $sameSite = 'Lax';
+        $cookieOpts = static function (int $expires, bool $secure) use ($path, $domain, $sameSite): array {
+            $opts = [
+                'expires'  => $expires,
+                'path'     => $path,
+                'secure'   => $secure,
+                'httponly' => true,
+                'samesite' => $sameSite,
+            ];
+            if ($domain !== '') {
+                $opts['domain'] = $domain;
+            }
+            return $opts;
+        };
+
+        // 1) Extend PHP / Joomla session cookie
+        try {
+            $session = $this->app->getSession();
+            $sName   = (string) $session->getName();
+            $sId     = (string) $session->getId();
+
+            if ($sName !== '' && $sId !== '') {
+                setcookie($sName, $sId, $cookieOpts($expires, $secure));
+            }
+
+            $session->set('otplogin.session_expires', $expires);
+        } catch (\Throwable $e) {
+            // ignore
+        }
+
+        // 2) Create a proper Remember Me series so login survives session GC.
+        // Works even when System - Remember Me is disabled, as long as the
+        // cookie is present and Joomla's remember plugin (or core) can read it.
+        try {
+            $user = $this->app->getIdentity();
+
+            if (!$user || !(int) $user->id) {
+                return;
+            }
+
+            $cookieName = 'joomla_remember_me_' . UserHelper::getShortHashedUserAgent();
+            $series     = UserHelper::genRandomPassword(20);
+            $token      = UserHelper::genRandomPassword(20);
+            $hashed     = hash('sha256', $token);
+            $ua         = substr((string) ($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 255);
+            $db         = $this->db;
+
+            // Remove previous series for this user+UA to avoid unbounded growth
+            try {
+                $db->setQuery(
+                    'DELETE FROM ' . $db->quoteName('#__user_keys')
+                    . ' WHERE ' . $db->quoteName('user_id') . ' = ' . (int) $user->id
+                    . ' AND ' . $db->quoteName('uastring') . ' = ' . $db->quote($ua)
+                )->execute();
+            } catch (\Throwable $e) {
+                // table may differ on odd installs
+            }
+
+            try {
+                $db->setQuery(
+                    'INSERT INTO ' . $db->quoteName('#__user_keys')
+                    . ' (' . $db->quoteName('user_id') . ', ' . $db->quoteName('series') . ', '
+                    . $db->quoteName('uastring') . ', ' . $db->quoteName('token') . ', '
+                    . $db->quoteName('time') . ') VALUES ('
+                    . (int) $user->id . ', '
+                    . $db->quote($series) . ', '
+                    . $db->quote($ua) . ', '
+                    . $db->quote($hashed) . ', '
+                    . $db->quote((string) time()) . ')'
+                )->execute();
+            } catch (\Throwable $e) {
+                // If insert fails, still try cookie + session extension above
+                return;
+            }
+
+            setcookie($cookieName, $token . '.' . $series, $cookieOpts($expires, $secure));
+        } catch (\Throwable $e) {
+            // never break login
+        }
+    }
+
     public function safeRedirect(string $url): string
     {
         $url = trim($url);
 
-        if ($url !== '' && Uri::isInternal($url)) {
-            return $url;
+        // Accept absolute internal URLs and root-relative paths
+        if ($url !== '') {
+            if (Uri::isInternal($url)) {
+                return $url;
+            }
+            // base64 return sometimes decoded already; also allow relative /path
+            if (isset($url[0]) && $url[0] === '/' && strpos($url, '//') !== 0) {
+                return $url;
+            }
+            $decoded = base64_decode(strtr($url, '-_', '+/'), true);
+            if (is_string($decoded) && $decoded !== '' && Uri::isInternal($decoded)) {
+                return $decoded;
+            }
         }
 
         $custom = trim((string) $this->params->get('redirect_url', ''));
+        if ($custom !== '' && Uri::isInternal($custom)) {
+            return $custom;
+        }
 
-        return $custom !== '' && Uri::isInternal($custom) ? $custom : Uri::root();
+        // No destination → stay on the same page
+        return '';
     }
 }

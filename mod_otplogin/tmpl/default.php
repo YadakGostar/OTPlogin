@@ -18,13 +18,29 @@ $uid = 'otp' . $moduleId;
 $e   = static fn ($v): string => htmlspecialchars((string) $v, ENT_QUOTES, 'UTF-8');
 
 // ---------------------------------------------------------------- signed-in view
+$isRtl = Factory::getLanguage()->isRtl();
+$dirAttr = $isRtl ? 'rtl' : 'ltr';
 if ($user && $user->id) :
     $profileUrl = Route::_('index.php?option=com_users&view=profile&layout=edit');
+
+    $fullName = trim((string) $user->name);
+    $nameParts = preg_split('/\s+/u', $fullName, 2) ?: [];
+    $firstName = $nameParts[0] ?? '';
+    $lastName  = $nameParts[1] ?? '';
     ?>
     <?php
     $avatarUrl = '';
     $avatarOn  = (int) $config->get('avatar_enabled', 1) === 1;
-    $welcomeAvatar = (int) Factory::getApplication()->getSession()->get('otplogin.welcome_avatar', 0) === 1;
+    $appSess = Factory::getApplication()->getSession();
+    $welcomeAvatar = (int) $appSess->get('otplogin.welcome_avatar', 0) === 1;
+    $welcomeUntil  = (int) $appSess->get('otplogin.welcome_until', 0);
+    $welcomeLeft   = max(0, $welcomeUntil - time());
+    $welcomeSec    = max(15, min(300, (int) $config->get('welcome_seconds', 60)));
+    if ($welcomeLeft <= 0 && $welcomeAvatar) {
+        // flag without deadline → use full window
+        $welcomeLeft = $welcomeSec;
+    }
+    $showWelcomeGate = false; // auto welcome disabled — user opens panel manually
     $passkeyOn = (int) $config->get('passkey_enabled', 1) === 1;
     $qrOn      = (int) $config->get('qr_login_enabled', 1) === 1;
     if ($avatarOn) {
@@ -41,10 +57,11 @@ if ($user && $user->id) :
     }
     ?>
     <div class="otp otp--signed-in <?php echo $moduleClass; ?>"
-         data-otplogin-signed<?php echo !empty($welcomeAvatar) ? ' data-welcome-avatar="1"' : ''; ?>
+         data-otplogin-signed data-user-id="<?php echo (int) $user->id; ?>"<?php echo !empty($showWelcomeGate) ? ' data-welcome-gate="1" data-welcome-left="' . (int) $welcomeLeft . '"' : ''; ?><?php echo !empty($welcomeAvatar) ? ' data-welcome-avatar="1"' : ''; ?>
          data-endpoint="<?php echo $e($endpoint); ?>"
          data-avatar="<?php echo $avatarOn ? '1' : '0'; ?>"
          data-passkey="<?php echo $passkeyOn ? '1' : '0'; ?>"
+         data-admin="<?php echo Factory::getApplication()->getIdentity()->authorise('core.admin') ? '1' : '0'; ?>"
          data-qr="<?php echo $qrOn ? '1' : '0'; ?>">
         <input type="hidden" name="<?php echo $e($tokenName); ?>" value="1" data-token>
         <div class="otp-user">
@@ -62,6 +79,9 @@ if ($user && $user->id) :
                 <div class="otp-user__details">
                     <h4 class="otp-user__name"><?php echo $e($user->name); ?></h4>
                     <small class="otp-user__welcome"><?php echo Text::_('MOD_OTPLOGIN_WELCOME'); ?></small>
+                    <?php if (!empty($showWelcomeGate)) : ?>
+                    <small class="otp-user__timer" data-welcome-timer hidden></small>
+                    <?php endif; ?>
                 </div>
             </div>
             <div class="otp-user__actions">
@@ -94,14 +114,42 @@ if ($user && $user->id) :
                     <button type="button" class="otp-user__btn otp-user__btn--passkey" data-passkey-register>
                         <span><?php echo Text::_('MOD_OTPLOGIN_PASSKEY_REGISTER'); ?></span>
                     </button>
+                    <p class="otp-user__passkey-hint"><?php echo Text::_('MOD_OTPLOGIN_PASSKEY_HINT'); ?></p>
                 <?php endif; ?>
                 <?php if ($qrOn) : ?>
                     <button type="button" class="otp-user__btn otp-user__btn--qr" data-qr-confirm-open hidden>
                         <span><?php echo Text::_('MOD_OTPLOGIN_QR_CONFIRM'); ?></span>
                     </button>
                 <?php endif; ?>
-                <a class="otp-user__btn otp-user__btn--profile" href="<?php echo $e($profileUrl); ?>">
+                <button type="button" class="otp-user__btn otp-user__btn--profile" data-profile-open>
                     <svg viewBox="0 0 24 24" width="1.2em" height="1.2em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                    <span><?php echo Text::_('MOD_OTPLOGIN_PROFILE_OPEN'); ?></span>
+                </button>
+                <div class="otp-profile" data-profile-panel hidden dir="<?php echo $dirAttr; ?>">
+                    <p class="otp-profile__hint"><?php echo Text::_('MOD_OTPLOGIN_PROFILE_HINT'); ?></p>
+                    <label class="otp__label otp-profile__label" for="<?php echo $uid; ?>-pf-first"><?php echo Text::_('MOD_OTPLOGIN_PROFILE_FIRST'); ?></label>
+                    <input class="otp__input otp-profile__input" type="text" id="<?php echo $uid; ?>-pf-first" name="firstname"
+                           dir="<?php echo $dirAttr; ?>" autocomplete="given-name" maxlength="80"
+                           value="<?php echo $e($firstName); ?>" data-profile-first>
+                    <label class="otp__label otp-profile__label" for="<?php echo $uid; ?>-pf-last"><?php echo Text::_('MOD_OTPLOGIN_PROFILE_LAST'); ?></label>
+                    <input class="otp__input otp-profile__input" type="text" id="<?php echo $uid; ?>-pf-last" name="lastname"
+                           dir="<?php echo $dirAttr; ?>" autocomplete="family-name" maxlength="80"
+                           value="<?php echo $e($lastName); ?>" data-profile-last>
+                    <label class="otp__label otp-profile__label" for="<?php echo $uid; ?>-pf-user"><?php echo Text::_('MOD_OTPLOGIN_PROFILE_USER'); ?></label>
+                    <input class="otp__input otp-profile__input" type="text" id="<?php echo $uid; ?>-pf-user" name="username"
+                           dir="<?php echo $dirAttr; ?>" autocomplete="username" maxlength="150"
+                           value="<?php echo $e($user->username); ?>" data-profile-user>
+                    <div class="otp-profile__actions">
+                        <button type="button" class="otp-user__btn otp-user__btn--save" data-profile-save>
+                            <?php echo Text::_('MOD_OTPLOGIN_PROFILE_SAVE'); ?>
+                        </button>
+                        <button type="button" class="otp__link" data-profile-cancel>
+                            <?php echo Text::_('MOD_OTPLOGIN_PROFILE_CANCEL'); ?>
+                        </button>
+                    </div>
+                    <p class="otp-profile__msg" data-profile-msg role="status" aria-live="polite"></p>
+                </div>
+                <a class="otp-user__btn otp-user__btn--profile-joomla" href="<?php echo $e($profileUrl); ?>" style="display:none" hidden>
                     <span><?php echo Text::_('MOD_OTPLOGIN_EDIT_PROFILE'); ?></span>
                 </a>
                 <form class="otp-user__form" action="<?php echo Route::_('index.php?option=com_users&task=user.logout'); ?>" method="post">
@@ -109,7 +157,15 @@ if ($user && $user->id) :
                         <svg viewBox="0 0 24 24" width="1.2em" height="1.2em" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>
                         <span><?php echo Text::_('MOD_OTPLOGIN_LOGOUT'); ?></span>
                     </button>
-                    <input type="hidden" name="return" value="<?php echo base64_encode(Uri::base()); ?>">
+                    <?php
+                    $logoutUrl = trim((string) $config->get('logout_redirect', ''));
+                    if ($logoutUrl === '') {
+                        $logoutUrl = Uri::base();
+                    } elseif ($logoutUrl[0] === '/') {
+                        $logoutUrl = Uri::root() . ltrim($logoutUrl, '/');
+                    }
+                    ?>
+                    <input type="hidden" name="return" value="<?php echo base64_encode($logoutUrl); ?>">
                     <?php echo HTMLHelper::_('form.token'); ?>
                 </form>
             </div>
@@ -136,6 +192,13 @@ $i18n = [
     'expired'      => Text::_('MOD_OTPLOGIN_EXPIRED'),
     'passIntro'    => Text::_('MOD_OTPLOGIN_PASS_INTRO'),
     'passEmpty'    => Text::_('MOD_OTPLOGIN_PASS_EMPTY'),
+    'userPassTitle'=> Text::_('MOD_OTPLOGIN_USERPASS_TITLE'),
+    'userPassUser' => Text::_('MOD_OTPLOGIN_USERPASS_USER'),
+    'userPassPass' => Text::_('MOD_OTPLOGIN_USERPASS_PASS'),
+    'userPassSubmit'=> Text::_('MOD_OTPLOGIN_USERPASS_SUBMIT'),
+    'userPassBack' => Text::_('MOD_OTPLOGIN_USERPASS_BACK'),
+    'userPassEmpty'=> Text::_('MOD_OTPLOGIN_USERPASS_EMPTY'),
+
     'passShort'    => Text::_('MOD_OTPLOGIN_ERR_PASS_SHORT'),
     'passMismatch' => Text::_('MOD_OTPLOGIN_ERR_PASS_MISMATCH'),
     'setpwHint'    => Text::_('MOD_OTPLOGIN_SETPW_HINT'),
@@ -145,6 +208,7 @@ ob_start();
 ?>
 <div class="otp <?php echo $moduleClass; ?>"
      data-otplogin
+     data-admin="<?php echo Factory::getApplication()->getIdentity()->authorise('core.admin') ? '1' : '0'; ?>"
      data-endpoint="<?php echo $e($endpoint); ?>"
      data-return="<?php echo $e($returnUrl); ?>"
      data-ts="<?php echo (int) $timestamp; ?>"
@@ -166,9 +230,8 @@ ob_start();
         <div class="otp__phone-row">
             <span class="otp__phone-cc" aria-hidden="true">+۹۸</span>
             <input class="otp__input otp__input--phone" type="tel" id="<?php echo $uid; ?>-phone" name="phone"
-                   dir="ltr" inputmode="numeric" autocomplete="tel-national"
+                   dir="ltr" inputmode="numeric" autocomplete="tel-national" maxlength="10" required
                    placeholder="<?php echo $e(Text::_('MOD_OTPLOGIN_PHONE_PLACEHOLDER')); ?>"
-                   maxlength="20" required
                    aria-label="<?php echo $e(Text::_('MOD_OTPLOGIN_PHONE_LABEL')); ?>">
         </div>
         <div class="otp__hp" aria-hidden="true"><input type="text" name="website" tabindex="-1" autocomplete="off"></div>
@@ -176,16 +239,20 @@ ob_start();
             <?php echo Text::_('MOD_OTPLOGIN_SEND'); ?>
             <span class="otp__btn-ico" aria-hidden="true">✈</span>
         </button>
+        <?php if ((int) $config->get('password_login', 1) === 1) : ?>
+        <div class="otp__divider" aria-hidden="true"><span><?php echo Text::_('MOD_OTPLOGIN_OR'); ?></span></div>
         <div class="otp__row">
-            <button type="button" class="otp__link" data-goto="password" hidden data-has-password-link>
-                <span aria-hidden="true">🔑</span> <?php echo Text::_('MOD_OTPLOGIN_GO_PASSWORD'); ?>
+            <button type="button" class="otp__link otp__link--userpass" data-goto="userpass">
+                <span aria-hidden="true">🔑</span> <?php echo Text::_('MOD_OTPLOGIN_USERPASS_TITLE'); ?>
             </button>
         </div>
+        <?php endif; ?>
         <div class="otp__row otp__row--alt" data-alt-login>
             <?php if ((int) $config->get('passkey_enabled', 1) === 1) : ?>
             <button type="button" class="otp__link" data-passkey-login>
                 <span aria-hidden="true">🔐</span> <?php echo Text::_('MOD_OTPLOGIN_PASSKEY_LOGIN'); ?>
             </button>
+            <p class="otp__passkey-hint"><?php echo Text::_('MOD_OTPLOGIN_PASSKEY_HINT'); ?></p>
             <?php endif; ?>
             <?php if ((int) $config->get('qr_login_enabled', 1) === 1) : ?>
             <button type="button" class="otp__link" data-qr-login>
@@ -210,14 +277,47 @@ ob_start();
     </div>
 
     <?php /* ---- returning user: password ---- */ ?>
-    <form class="otp__step" data-step="password" hidden novalidate>
+    
+    <?php /* ---- classic username + password (existing members) ---- */ ?>
+    <?php if ((int) $config->get('password_login', 1) === 1) : ?>
+    <form class="otp__step" data-step="userpass" hidden novalidate dir="<?php echo $dirAttr; ?>">
+        <p class="otp__hint"><?php echo Text::_('MOD_OTPLOGIN_USERPASS_HINT'); ?></p>
+        <label class="otp__label" for="<?php echo $uid; ?>-username"><?php echo Text::_('MOD_OTPLOGIN_USERPASS_USER'); ?></label>
+        <input class="otp__input otp__input--userpass" type="text" id="<?php echo $uid; ?>-username" name="username"
+               dir="<?php echo $dirAttr; ?>" autocomplete="username" required
+               placeholder="<?php echo $e(Text::_('MOD_OTPLOGIN_USERPASS_USER_PH')); ?>">
+        <label class="otp__label" for="<?php echo $uid; ?>-userpass"><?php echo Text::_('MOD_OTPLOGIN_USERPASS_PASS'); ?></label>
+        <div class="otp-passwrap">
+            <input class="otp__input otp__input--userpass" type="password" id="<?php echo $uid; ?>-userpass" name="password"
+                   dir="<?php echo $dirAttr; ?>" autocomplete="current-password" required
+                   placeholder="<?php echo $e(Text::_('MOD_OTPLOGIN_PASS_PLACEHOLDER')); ?>" data-pass-input>
+            <button type="button" class="otp-passwrap__toggle" data-pass-toggle
+                    aria-label="<?php echo $e(Text::_('MOD_OTPLOGIN_SHOW_PASS')); ?>" title="<?php echo $e(Text::_('MOD_OTPLOGIN_SHOW_PASS')); ?>">👁</button>
+        </div>
+        <button type="submit" class="otp__btn otp__btn--primary">
+            <?php echo Text::_('MOD_OTPLOGIN_USERPASS_SUBMIT'); ?>
+        </button>
+        <div class="otp__row">
+            <button type="button" class="otp__link" data-goto="phone"><?php echo Text::_('MOD_OTPLOGIN_USERPASS_BACK'); ?></button>
+        </div>
+    </form>
+    <?php endif; ?>
+
+    <form class="otp__step" data-step="password" hidden novalidate dir="<?php echo $dirAttr; ?>">
         <p class="otp__label" data-pass-intro></p>
         <label class="otp__label otp__label--sub" for="<?php echo $uid; ?>-pw">
             <?php echo Text::_('MOD_OTPLOGIN_PASS_LABEL'); ?>
             <span class="otp__label-ico" aria-hidden="true">🔒</span>
         </label>
-        <input class="otp__input" type="password" dir="ltr" id="<?php echo $uid; ?>-pw" name="password"
-               autocomplete="current-password" placeholder="<?php echo $e(Text::_('MOD_OTPLOGIN_PASS_PLACEHOLDER')); ?>">
+        <div class="otp-passwrap">
+            <input class="otp__input" type="password" dir="ltr" id="<?php echo $uid; ?>-pw" name="password"
+                   autocomplete="current-password"
+                   placeholder="<?php echo $e(Text::_('MOD_OTPLOGIN_PASS_PLACEHOLDER')); ?>"
+                   data-pass-input>
+            <button type="button" class="otp-passwrap__toggle" data-pass-toggle
+                    aria-label="<?php echo $e(Text::_('MOD_OTPLOGIN_SHOW_PASS')); ?>"
+                    title="<?php echo $e(Text::_('MOD_OTPLOGIN_SHOW_PASS')); ?>">👁</button>
+        </div>
         <button type="submit" class="otp__btn otp__btn--primary">
             <?php echo Text::_('MOD_OTPLOGIN_PASS_SUBMIT'); ?>
             <span class="otp__btn-ico" aria-hidden="true">↪</span>
@@ -235,9 +335,17 @@ ob_start();
         <p class="otp__label"><?php echo Text::_('MOD_OTPLOGIN_SETPW_TITLE'); ?></p>
         <p class="otp__hint" data-setpw-hint></p>
         <label class="otp__label otp__label--sub" for="<?php echo $uid; ?>-np1"><?php echo Text::_('MOD_OTPLOGIN_SETPW_NEW'); ?></label>
-        <input class="otp__input" type="password" dir="ltr" id="<?php echo $uid; ?>-np1" name="password" autocomplete="new-password">
+        <div class="otp-passwrap">
+            <input class="otp__input" type="password" dir="ltr" id="<?php echo $uid; ?>-np1" name="password" autocomplete="new-password" data-pass-input>
+            <button type="button" class="otp-passwrap__toggle" data-pass-toggle
+                    aria-label="<?php echo $e(Text::_('MOD_OTPLOGIN_SHOW_PASS')); ?>">👁</button>
+        </div>
         <label class="otp__label otp__label--sub" for="<?php echo $uid; ?>-np2"><?php echo Text::_('MOD_OTPLOGIN_SETPW_REPEAT'); ?></label>
-        <input class="otp__input" type="password" dir="ltr" id="<?php echo $uid; ?>-np2" name="password2" autocomplete="new-password">
+        <div class="otp-passwrap">
+            <input class="otp__input" type="password" dir="ltr" id="<?php echo $uid; ?>-np2" name="password2" autocomplete="new-password" data-pass-input>
+            <button type="button" class="otp-passwrap__toggle" data-pass-toggle
+                    aria-label="<?php echo $e(Text::_('MOD_OTPLOGIN_SHOW_PASS')); ?>">👁</button>
+        </div>
         <button type="submit" class="otp__btn otp__btn--primary"><?php echo Text::_('MOD_OTPLOGIN_SETPW_SUBMIT'); ?></button>
         <div class="otp__row"><button type="button" class="otp__link" data-skip-setpw><?php echo Text::_('MOD_OTPLOGIN_SETPW_LATER'); ?></button></div>
     </form>
@@ -299,7 +407,11 @@ ob_start();
         <label class="otp__label otp__label--sub" for="<?php echo $uid; ?>-ident"><?php echo Text::_('MOD_OTPLOGIN_LINK_ID'); ?></label>
         <input class="otp__input" type="text" dir="ltr" id="<?php echo $uid; ?>-ident" name="identifier" autocomplete="username">
         <label class="otp__label otp__label--sub" for="<?php echo $uid; ?>-pass"><?php echo Text::_('MOD_OTPLOGIN_LINK_PASSWORD'); ?></label>
-        <input class="otp__input" type="password" dir="ltr" id="<?php echo $uid; ?>-pass" name="password" autocomplete="current-password">
+        <div class="otp-passwrap">
+            <input class="otp__input" type="password" dir="ltr" id="<?php echo $uid; ?>-pass" name="password" autocomplete="current-password" data-pass-input>
+            <button type="button" class="otp-passwrap__toggle" data-pass-toggle
+                    aria-label="<?php echo $e(Text::_('MOD_OTPLOGIN_SHOW_PASS')); ?>">👁</button>
+        </div>
         <button type="submit" class="otp__btn otp__btn--primary"><?php echo Text::_('MOD_OTPLOGIN_LINK_SUBMIT'); ?></button>
         <div class="otp__row"><button type="button" class="otp__link" data-back-choice><?php echo Text::_('MOD_OTPLOGIN_BACK'); ?></button></div>
     </form>

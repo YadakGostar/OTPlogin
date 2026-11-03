@@ -34,6 +34,13 @@ class HtmlView extends BaseHtmlView
     public array $cards = [];
     public array $health = [];
     public string $webotpLine = '';
+    public string $extensionVersion = '';
+    public string $latestVersion = '';
+    public bool $updateAvailable = false;
+    public string $updateDownloadUrl = '';
+    public string $updateInfoUrl = '';
+    public string $updateCheckError = '';
+    public string $licenseLabel = 'GPL-2.0-or-later';
 
     public function display($tpl = null)
     {
@@ -212,10 +219,26 @@ class HtmlView extends BaseHtmlView
             . ' WHERE `blocked_until` > ' . time() . ' ORDER BY `blocked_until` DESC LIMIT 100'
         )->loadObjectList() ?: [];
 
+        // Resolve name by user id (new rows) or username/phone subject (legacy rows).
         $this->events = $db->setQuery(
             'SELECT e.*, u.name AS user_name, u.username AS user_username FROM ' . $db->quoteName('#__otplogin_events') . ' AS e'
-            . ' LEFT JOIN ' . $db->quoteName('#__users') . ' AS u ON u.id = CAST(e.subject AS UNSIGNED)'
-            . ' ORDER BY e.id DESC LIMIT 5'
+            . ' LEFT JOIN ' . $db->quoteName('#__users') . ' AS u ON ('
+            . ' u.id = CAST(e.subject AS UNSIGNED)'
+            . ' OR u.username = e.subject'
+            . ' OR LOWER(u.email) = LOWER(e.subject)'
+            . ')'
+            . ' WHERE e.kind IN ('
+            . $db->quote('login') . ','
+            . $db->quote('login_pass') . ','
+            . $db->quote('register') . ','
+            . $db->quote('link') . ','
+            . $db->quote('verify_ok') . ','
+            . $db->quote('verify_fail') . ','
+            . $db->quote('pass_fail') . ','
+            . $db->quote('send') . ','
+            . $db->quote('sms_error')
+            . ')'
+            . ' ORDER BY e.id DESC LIMIT 8'
         )->loadObjectList() ?: [];
 
         $modulePublished = (int) $db->setQuery(
@@ -314,7 +337,112 @@ class HtmlView extends BaseHtmlView
             ToolbarHelper::preferences('com_otplogin');
         }
 
+        $this->loadVersionAndUpdates();
+
         parent::display($tpl);
+    }
+
+
+    /** Load installed version from #__extensions and optionally check the remote update server. */
+    private function loadVersionAndUpdates(): void
+    {
+        $this->extensionVersion  = '1.1.15';
+        $this->latestVersion     = '';
+        $this->updateAvailable   = false;
+        $this->updateDownloadUrl = '';
+        $this->updateInfoUrl     = '';
+        $this->updateCheckError  = '';
+        $this->licenseLabel      = 'GPL-2.0-or-later';
+
+        try {
+            $db  = Factory::getContainer()->get(DatabaseInterface::class);
+            $row = $db->setQuery(
+                'SELECT `manifest_cache` FROM ' . $db->quoteName('#__extensions')
+                . ' WHERE `element` = ' . $db->quote('com_otplogin')
+                . ' AND `type` = ' . $db->quote('component')
+                . ' LIMIT 1'
+            )->loadResult();
+
+            if (is_string($row) && $row !== '') {
+                $cache = json_decode($row, true);
+                if (is_array($cache) && !empty($cache['version'])) {
+                    $this->extensionVersion = (string) $cache['version'];
+                }
+                if (is_array($cache) && !empty($cache['license'])) {
+                    $this->licenseLabel = (string) $cache['license'];
+                }
+            }
+
+            // Prefer version already discovered by Joomla's update system
+            $joomlaUpdate = $db->setQuery(
+                'SELECT `version`, `detailsurl`, `infourl` FROM ' . $db->quoteName('#__updates')
+                . ' WHERE `element` = ' . $db->quote('pkg_otplogin')
+                . ' OR (`element` = ' . $db->quote('com_otplogin') . ' AND `type` = ' . $db->quote('component') . ')'
+                . ' ORDER BY `update_id` DESC LIMIT 1'
+            )->loadObject();
+
+            if ($joomlaUpdate && !empty($joomlaUpdate->version)
+                && version_compare((string) $joomlaUpdate->version, $this->extensionVersion, '>')) {
+                $this->latestVersion     = (string) $joomlaUpdate->version;
+                $this->updateAvailable   = true;
+                $this->updateDownloadUrl = '';
+                $this->updateInfoUrl     = (string) ($joomlaUpdate->infourl ?: 'https://www.yadakgostar.co');
+                // Joomla will install from Extensions → Update; no direct ZIP needed
+                return;
+            }
+        } catch (\Throwable $e) {
+            // continue to remote check
+        }
+
+        $server = 'https://www.yadakgostar.co/updates/pkg_otplogin.xml';
+        try {
+            $ctx = stream_context_create([
+                'http' => [
+                    'timeout'       => 4,
+                    'ignore_errors' => true,
+                    'header'        => "User-Agent: OTPLogin-Dashboard/1.1\r\nAccept: application/xml,text/xml,*/*\r\n",
+                ],
+                'ssl' => [
+                    'verify_peer'      => true,
+                    'verify_peer_name' => true,
+                ],
+            ]);
+            $xml = @file_get_contents($server, false, $ctx);
+            if ($xml === false || $xml === '') {
+                $this->updateCheckError = 'offline';
+                return;
+            }
+
+            $doc = @simplexml_load_string($xml);
+            if ($doc === false) {
+                $this->updateCheckError = 'invalid';
+                return;
+            }
+
+            $best = '';
+            $dl   = '';
+            $info = '';
+            foreach ($doc->update as $upd) {
+                $ver = trim((string) ($upd->version ?? ''));
+                if ($ver === '') {
+                    continue;
+                }
+                if ($best === '' || version_compare($ver, $best, '>')) {
+                    $best = $ver;
+                    $dl   = trim((string) ($upd->downloads->downloadurl ?? ''));
+                    $info = trim((string) ($upd->infourl ?? ''));
+                }
+            }
+
+            if ($best !== '') {
+                $this->latestVersion     = $best;
+                $this->updateDownloadUrl = $dl;
+                $this->updateInfoUrl     = $info !== '' ? $info : 'https://www.yadakgostar.co';
+                $this->updateAvailable   = version_compare($best, $this->extensionVersion, '>');
+            }
+        } catch (\Throwable $e) {
+            $this->updateCheckError = 'error';
+        }
     }
 
     private function jalaliMonthLabel(int $ts): string

@@ -1,0 +1,1 @@
+-- OTP Login 1.1.15 — update site registration via installer script

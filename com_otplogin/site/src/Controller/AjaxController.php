@@ -98,6 +98,12 @@ class AjaxController extends BaseController
         'passkey_invalid'=> [422, 'COM_OTPLOGIN_ERR_PASSKEY_INVALID'],
         'passkey_exists' => [409, 'COM_OTPLOGIN_ERR_PASSKEY_EXISTS'],
         'passkey_failed' => [401, 'COM_OTPLOGIN_ERR_PASSKEY_FAILED'],
+        'username_taken' => [409, 'COM_OTPLOGIN_ERR_USERNAME_TAKEN'],
+        'username_invalid' => [422, 'COM_OTPLOGIN_ERR_USERNAME_INVALID'],
+        'profile_save' => [500, 'COM_OTPLOGIN_ERR_PROFILE_SAVE'],
+        'email_disposable' => [422, 'COM_OTPLOGIN_ERR_EMAIL_DISPOSABLE'],
+        'email_domain' => [422, 'COM_OTPLOGIN_ERR_EMAIL_DOMAIN'],
+
         'auth_required'  => [401, 'COM_OTPLOGIN_ERR_AUTH_REQUIRED'],
     ];
 
@@ -126,8 +132,9 @@ class AjaxController extends BaseController
         $limit = (int) $this->params()->get('lookup_hourly_max', 30);
 
         // Anyone can ask "is this number registered?", so the question itself is rate limited.
+        // Trusted crawlers/monitors skip this limit so SEO & uptime checks are not blocked.
         $rateIp = $this->rateIp($ip);
-        if ($limit > 0) {
+        if ($limit > 0 && !$this->isTrustedBot()) {
             $this->limiter()->record('lookup', null, $rateIp);
 
             if ($this->limiter()->count('lookup', 'ip', $rateIp, time() - 3600) > $limit) {
@@ -157,7 +164,82 @@ class AjaxController extends BaseController
         $this->sendCodeResponse($this->phoneFromPost($ip), $ip);
     }
 
-    /** Sign in with the password the user chose earlier. */
+    /**
+     * Classic login: username or e-mail + password (for members who already have a Joomla password).
+     */
+    public function passworduser(): void
+    {
+        $this->start();
+        $ip        = $this->clientIp();
+        $accounts  = $this->accounts();
+        $limiter   = $this->limiter();
+        $username  = trim((string) $this->input->post->get('username', '', 'STRING'));
+        $password  = (string) $this->input->post->get('password', '', 'raw');
+
+        if (!$accounts->passwordLoginEnabled()) {
+            $this->fail('pass_invalid');
+        }
+
+        if ($username === '' || $password === '') {
+            $this->fail('pass_invalid');
+        }
+
+        $subject = mb_strtolower(mb_substr($username, 0, 64));
+        foreach ([['pwduser', $subject], ['pwdip', $ip]] as [$scope, $target]) {
+            if ($left = $limiter->blockedFor($scope, $target)) {
+                $this->fail('blocked', ['retry_after' => $left]);
+            }
+        }
+
+        $userId = $accounts->findForLink($username);
+
+        if (!$accounts->checkPassword($userId, $password)) {
+            $now   = time();
+            $block = max(1, (int) $this->params()->get('block_minutes', 30)) * 60;
+            $pMax  = (int) $this->params()->get('password_fail_max', 5);
+            $iMax  = (int) $this->params()->get('password_ip_fail_max', 15);
+
+            $limiter->record('pass_fail', $subject, $ip);
+
+            if ($pMax > 0 && $limiter->count('pass_fail', 'subject', $subject, $now - 900) >= $pMax) {
+                $limiter->block('pwduser', $subject, $block, 'too many wrong passwords');
+            }
+
+            if ($iMax > 0 && $limiter->count('pass_fail', 'ip', $ip, $now - 900) >= $iMax) {
+                $limiter->block('pwdip', $ip, $block, 'too many wrong passwords');
+            }
+
+            if ($left = $limiter->blockedFor('pwduser', $subject)) {
+                $this->fail('blocked', ['retry_after' => $left]);
+            }
+
+            $this->fail('pass_invalid');
+        }
+
+        $phone = '';
+        try {
+            $key = trim((string) $this->params()->get('profile_key', 'otplogin.phone')) ?: 'otplogin.phone';
+            $db  = \Joomla\CMS\Factory::getContainer()->get(\Joomla\Database\DatabaseInterface::class);
+            $raw = (string) $db->setQuery(
+                'SELECT `profile_value` FROM ' . $db->quoteName('#__user_profiles')
+                . ' WHERE `user_id` = ' . (int) $userId
+                . ' AND `profile_key` = ' . $db->quote($key)
+                . ' LIMIT 1'
+            )->loadResult();
+            $digits = PhoneHelper::digits($raw);
+            if (preg_match('/^09\d{9}$/', $digits)) {
+                $phone = $digits;
+            } elseif (preg_match('/^9\d{9}$/', $digits)) {
+                $phone = '0' . $digits;
+            }
+        } catch (\Throwable $e) {
+            $phone = '';
+        }
+
+        $this->loginExisting((int) $userId, $phone, $ip, 'login_pass');
+    }
+
+        /** Sign in with the password the user chose earlier. */
     public function password(): void
     {
         $this->start();
@@ -253,11 +335,16 @@ class AjaxController extends BaseController
 
         $this->app->getSession()->clear('otplogin.setpw');
 
+        $this->app->getSession()->clear('otplogin.welcome_until');
+        $this->app->getSession()->clear('otplogin.welcome_avatar');
+
         $this->respond([
-            'ok'       => true,
-            'action'   => 'done',
-            'kind'     => 'setpassword',
-            'redirect' => $accounts->safeRedirect((string) $this->input->post->get('return', '', 'raw')),
+            'ok'              => true,
+            'action'          => 'done',
+            'kind'            => 'setpassword',
+            'redirect'        => $accounts->safeRedirect((string) $this->input->post->get('return', '', 'raw')),
+            'welcome'         => false,
+            'welcome_seconds' => 0,
         ]);
     }
 
@@ -300,10 +387,11 @@ class AjaxController extends BaseController
 
         $this->app->getSession()->set('otplogin.verified', ['phone' => $phone, 'exp' => time() + 900]);
 
-        $askName  = (string) $this->params()->get('ask_name', 'required');
-        $askEmail = (string) $this->params()->get('ask_email', 'optional');
+        $askName = (string) $this->params()->get('ask_name', 'required');
+        // Registration never asks for email — only username/email+password login is supported.
+        $askEmail = 'off';
 
-        if ($accounts->registrationEnabled() && !$accounts->linkEnabled() && $askName === 'off' && $askEmail === 'off') {
+        if ($accounts->registrationEnabled() && !$accounts->linkEnabled() && $askName === 'off') {
             $this->doRegister($phone, '', '', $ip);
         }
 
@@ -330,21 +418,15 @@ class AjaxController extends BaseController
             $this->fail('reg_disabled');
         }
 
-        $name  = trim($post->getString('name', ''));
-        $name  = function_exists('mb_substr') ? mb_substr($name, 0, 100) : substr($name, 0, 100);
-        $email = strtolower(trim($post->getString('email', '')));
+        $name = trim($post->getString('name', ''));
+        $name = function_exists('mb_substr') ? mb_substr($name, 0, 100) : substr($name, 0, 100);
 
         if ($name === '' && (string) $this->params()->get('ask_name', 'required') === 'required') {
             $this->fail('name');
         }
 
-        $askEmail = (string) $this->params()->get('ask_email', 'optional');
-
-        if (($email === '' && $askEmail === 'required') || ($email !== '' && !MailHelper::isEmailAddress($email))) {
-            $this->fail('email');
-        }
-
-        $this->doRegister($phone, $name, $email, $ip);
+        // Never collect email on registration (placeholder email is assigned server-side).
+        $this->doRegister($phone, $name, '', $ip);
     }
 
     /** Step 3b: an old account owner proves the account with its password and attaches the phone. */
@@ -476,6 +558,7 @@ class AjaxController extends BaseController
         }
 
         $this->app->getSession()->clear('otplogin.welcome_avatar');
+        $this->markWelcomeSeen((int) $user->id);
         $this->respond(['ok' => true, 'url' => $result['url'], 'path' => $result['path']]);
     }
 
@@ -487,6 +570,8 @@ class AjaxController extends BaseController
             $this->fail('session');
         }
         $this->app->getSession()->clear('otplogin.welcome_avatar');
+        $this->app->getSession()->clear('otplogin.welcome_until');
+        $this->markWelcomeSeen((int) $user->id);
         $this->respond(['ok' => true]);
     }
 
@@ -524,14 +609,16 @@ class AjaxController extends BaseController
 
         $ua  = (string) $this->input->server->get('HTTP_USER_AGENT', '', 'string');
         $out = $qr->create($ip, $ua);
-        $url = Uri::root() . 'index.php?option=com_otplogin&task=ajax.qrconfirm&token=' . $out['token'];
+        // Full site URL so scanning opens confirmation on this domain (not a raw hex "domain")
+        $url = rtrim(Uri::root(), '/') . '/index.php?option=com_otplogin&task=ajax.qrscan&token=' . rawurlencode($out['token']);
 
         $this->respond([
-            'ok'         => true,
-            'token'      => $out['token'],
-            'expires_in' => $out['expires_in'],
-            'payload'    => $out['token'],
-            'confirm_hint' => $url,
+            'ok'          => true,
+            'token'       => $out['token'],
+            'expires_in'  => $out['expires_in'],
+            'payload'     => $url,
+            'confirm_url' => $url,
+            'confirm_hint'=> $url,
         ]);
     }
 
@@ -576,6 +663,84 @@ class AjaxController extends BaseController
         $this->respond(['ok' => true, 'status' => $st['status'] ?? 'pending']);
     }
 
+
+    /**
+     * Phone opens this URL from the QR (GET, no CSRF). Must be logged in on the phone.
+     * Approves the desktop session token.
+     */
+    public function qrscan(): void
+    {
+        try {
+            $lang = $this->app->getLanguage();
+            $lang->load('com_otplogin', JPATH_SITE, $lang->getTag(), true);
+            $lang->load('com_otplogin', JPATH_SITE, 'fa-IR', true);
+        } catch (\Throwable $e) {
+        }
+
+        $qr = $this->qr();
+        $token = (string) $this->input->get->get('token', '', 'alnum');
+        if ($token === '') {
+            $token = (string) $this->input->get->get('qr_token', '', 'alnum');
+        }
+
+        $home = Uri::root();
+        $self = rtrim(Uri::root(), '/') . '/index.php?option=com_otplogin&task=ajax.qrscan&token=' . rawurlencode($token);
+
+        if (!$qr->enabled()) {
+            $this->qrScanPage(false, Text::_('COM_OTPLOGIN_ERR_QR_DISABLED'), $home);
+        }
+
+        if ($token === '' || !preg_match('/^[a-f0-9]{64}$/', $token)) {
+            $this->qrScanPage(false, Text::_('COM_OTPLOGIN_ERR_QR_EXPIRED'), $home);
+        }
+
+        $user = $this->app->getIdentity();
+        if (!$user || !(int) $user->id) {
+            // Ask phone user to log in, then return here
+            $login = 'index.php?option=com_users&view=login&return=' . base64_encode($self);
+            $this->app->redirect($login);
+            $this->app->close();
+        }
+
+        $result = $qr->confirm($token, (int) $user->id, $this->clientIp());
+        if (isset($result['error'])) {
+            $key = 'COM_OTPLOGIN_ERR_' . strtoupper($result['error']);
+            $msg = Text::_($key);
+            if ($msg === $key) {
+                $msg = Text::_('COM_OTPLOGIN_ERR_QR_EXPIRED');
+            }
+            $this->qrScanPage(false, $msg, $home);
+        }
+
+        $this->qrScanPage(true, Text::_('COM_OTPLOGIN_QR_SCAN_OK'), $home);
+    }
+
+    /** Simple HTML result for mobile QR scan (not JSON). */
+    private function qrScanPage(bool $ok, string $message, string $home): void
+    {
+        $title = $ok ? '✅' : '⚠️';
+        $color = $ok ? '#059669' : '#dc2626';
+        $esc   = htmlspecialchars($message, ENT_QUOTES, 'UTF-8');
+        $homeE = htmlspecialchars($home, ENT_QUOTES, 'UTF-8');
+        header('Content-Type: text/html; charset=utf-8');
+        echo '<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="utf-8">'
+            . '<meta name="viewport" content="width=device-width,initial-scale=1">'
+            . '<title>OTP Login</title>'
+            . '<style>body{font-family:system-ui,sans-serif;display:flex;min-height:100vh;align-items:center;justify-content:center;'
+            . 'margin:0;background:#f8fafc;padding:1.5rem;box-sizing:border-box}'
+            . '.box{max-width:22rem;width:100%;background:#fff;border-radius:1rem;padding:1.75rem;text-align:center;'
+            . 'box-shadow:0 10px 40px rgba(0,0,0,.08)}'
+            . 'h1{font-size:1.25rem;margin:0 0 .75rem;color:' . $color . '}'
+            . 'p{color:#475569;line-height:1.6;margin:0 0 1.25rem}'
+            . 'a{display:inline-block;padding:.75rem 1.25rem;border-radius:999px;background:linear-gradient(135deg,#667eea,#764ba2);'
+            . 'color:#fff;text-decoration:none;font-weight:600}</style></head><body>'
+            . '<div class="box"><h1>' . $title . ' ' . $esc . '</h1>'
+            . '<p>' . ($ok ? htmlspecialchars(Text::_('COM_OTPLOGIN_QR_SCAN_OK_HINT'), ENT_QUOTES, 'UTF-8') : '') . '</p>'
+            . '<a href="' . $homeE . '">' . htmlspecialchars(Text::_('COM_OTPLOGIN_QR_SCAN_HOME'), ENT_QUOTES, 'UTF-8') . '</a>'
+            . '</div></body></html>';
+        $this->app->close();
+    }
+
     /** Phone (already logged in) confirms the desktop QR. */
     public function qrconfirm(): void
     {
@@ -592,7 +757,10 @@ class AjaxController extends BaseController
             $this->fail('auth_required');
         }
 
-        $token  = (string) $this->input->post->get('qr_token', '', 'alnum');
+        $token = (string) $this->input->post->get('qr_token', '', 'alnum');
+        if ($token === '') {
+            $token = (string) $this->input->post->get('token', '', 'alnum');
+        }
         $result = $qr->confirm($token, (int) $user->id, $this->clientIp());
 
         if (isset($result['error'])) {
@@ -602,7 +770,36 @@ class AjaxController extends BaseController
         $this->respond(['ok' => true]);
     }
 
-    // ---------------------------------------------------------------- passkeys (WebAuthn)
+    /** Save name / username from the signed-in welcome panel. */
+    public function saveprofile(): void
+    {
+        $this->start();
+        $user = $this->app->getIdentity();
+
+        if (!$user || !(int) $user->id) {
+            $this->fail('not_allowed');
+        }
+
+        $first = trim((string) $this->input->post->get('firstname', '', 'STRING'));
+        $last  = trim((string) $this->input->post->get('lastname', '', 'STRING'));
+        $uname = trim((string) $this->input->post->get('username', '', 'STRING'));
+
+        $result = $this->accounts()->updateProfile((int) $user->id, $first, $last, $uname);
+
+        if (!empty($result['error'])) {
+            $this->fail($result['error']);
+        }
+
+        $this->markWelcomeSeen((int) $user->id);
+        $this->respond([
+            'ok'       => true,
+            'name'     => $result['name'] ?? '',
+            'username' => $result['username'] ?? '',
+            'message'  => $this->safeFormat('COM_OTPLOGIN_PROFILE_SAVED'),
+        ]);
+    }
+
+        // ---------------------------------------------------------------- passkeys (WebAuthn)
 
     public function passkeyregisteroptions(): void
     {
@@ -767,6 +964,46 @@ class AjaxController extends BaseController
         $this->loginExisting($created['id'], $phone, $ip, 'register');
     }
 
+
+    private function hasWelcomeSeen(int $userId): bool
+    {
+        try {
+            $db = \Joomla\CMS\Factory::getContainer()->get(\Joomla\Database\DatabaseInterface::class);
+            $val = (string) $db->setQuery(
+                'SELECT `profile_value` FROM ' . $db->quoteName('#__user_profiles')
+                . ' WHERE `user_id` = ' . $userId
+                . ' AND `profile_key` = ' . $db->quote('otplogin.welcome_seen')
+                . ' LIMIT 1'
+            )->loadResult();
+
+            return $val === '1';
+        } catch (\Throwable $e) {
+            return false;
+        }
+    }
+
+    private function markWelcomeSeen(int $userId): void
+    {
+        if ($userId <= 0) {
+            return;
+        }
+        try {
+            $db = \Joomla\CMS\Factory::getContainer()->get(\Joomla\Database\DatabaseInterface::class);
+            $db->setQuery(
+                'DELETE FROM ' . $db->quoteName('#__user_profiles')
+                . ' WHERE `user_id` = ' . $userId
+                . ' AND `profile_key` = ' . $db->quote('otplogin.welcome_seen')
+            )->execute();
+            $db->setQuery(
+                'INSERT INTO ' . $db->quoteName('#__user_profiles')
+                . ' (`user_id`, `profile_key`, `profile_value`, `ordering`) VALUES ('
+                . $userId . ', ' . $db->quote('otplogin.welcome_seen') . ', ' . $db->quote('1') . ', 0)'
+            )->execute();
+        } catch (\Throwable $e) {
+            // ignore
+        }
+    }
+
     private function loginExisting(int $userId, string $phone, string $ip, string $kind, bool $reset = false): never
     {
         $accounts = $this->accounts();
@@ -790,7 +1027,14 @@ class AjaxController extends BaseController
             $this->fail('login_failed');
         }
 
-        $this->limiter()->record($kind, $phone, $ip);
+        // Store user id as subject so the dashboard can resolve the display name
+        // (username/password logins often have no phone on the event row).
+        $this->limiter()->record($kind, (string) $userId, $ip);
+
+        $tgKind  = null;
+        $tgText  = '';
+        $tgPhoto = '';
+
         try {
             $titles = [
                 'login'      => 'ورود موفق با پیامک',
@@ -818,8 +1062,8 @@ class AjaxController extends BaseController
             $ltr  = static fn (string $v): string => "\u{2066}" . $v . "\u{2069}";
             $site = rtrim(Uri::root(), '/');
             $siteHost = (string) (parse_url($site, PHP_URL_HOST) ?: $site);
-            $siteName = trim((string) $this->params()->get('passkey_rp_name', ''))
-                ?: trim((string) \Joomla\CMS\Factory::getApplication()->get('sitename', ''))
+            // Always prefer Joomla site name (not passkey_rp_name which is often a login label).
+            $siteName = trim((string) \Joomla\CMS\Factory::getApplication()->get('sitename', ''))
                 ?: $siteHost;
 
             $name     = trim((string) ($user->name ?? ''));
@@ -842,40 +1086,39 @@ class AjaxController extends BaseController
                 $lines[] = '📱 <b>شماره:</b> ' . $ltr('<code>' . $esc($phoneShow) . '</code>');
             }
 
-            $lines[] = '🔐 <b>روش ثبت‌نام:</b> ' . $esc($method);
+                        $lines[] = '🔐 <b>روش:</b> ' . $esc($method);
             $lines[] = '🌐 <b>سایت:</b> ' . $esc($siteName);
-            $lines[] = $ltr('<a href="' . $esc($site) . '">' . $esc($site) . '</a>');
-            $lines[] = '🖥 <b>IP:</b> ' . $ltr('<code>' . $esc($ip) . '</code>');
+            $lines[] = $ltr($esc($site));
+            $lines[] = '🖥 <b>IP:</b> ' . $ltr('<code>' . $esc($ip !== '' ? $ip : '—') . '</code>');
 
-            (new TelegramClient($this->params()))->notify($kind, implode("\n", $lines));
+            // Defer Telegram until after JSON is flushed (see respond() below).
+            $tgKind = $kind;
+            $tgText = implode("\n", $lines);
+            // Text-only is much faster than sendPhoto (Telegram must fetch the logo URL).
+            $tgPhoto = '';
         } catch (\Throwable $e) {
-            // ignore
+            $tgKind = null;
+            $tgText = '';
+            $tgPhoto = '';
         }
         $session = $this->app->getSession();
         $session->clear('otplogin.verified');
 
         $redirect = $accounts->safeRedirect((string) $this->input->post->get('return', '', 'raw'));
-        $needAvatar = false;
-        try {
-            if ((int) $this->params()->get('avatar_enabled', 1) === 1) {
-                $needAvatar = $this->avatars()->pathFor($userId) === '';
-            }
-        } catch (\Throwable $e) {
-            $needAvatar = false;
-        }
+        // Avatar gate is opened manually from the module — skip DB lookup on the login hot path.
 
-        if ($needAvatar) {
-            $session->set('otplogin.welcome_avatar', 1);
-        } else {
-            $session->clear('otplogin.welcome_avatar');
-        }
+        // Welcome modal is manual only (user opens profile / camera) — never auto-open after login.
+        $session->clear('otplogin.welcome_until');
+        $session->clear('otplogin.welcome_avatar');
 
         $response = [
-            'ok'          => true,
-            'action'      => 'done',
-            'kind'        => $kind,
-            'redirect'    => $redirect,
-            'need_avatar' => $needAvatar,
+            'ok'              => true,
+            'action'          => 'done',
+            'kind'            => $kind,
+            'redirect'        => $redirect,
+            'need_avatar'     => false,
+            'welcome'         => false,
+            'welcome_seconds' => 0,
         ];
 
         // Offer to choose a password: after a first SMS sign-in / sign-up, or after "forgot password".
@@ -895,7 +1138,13 @@ class AjaxController extends BaseController
             $response['token']    = Session::getFormToken(true);
         }
 
-        $this->respond($response);
+        $params = $this->params();
+        $this->respond($response, 200, static function () use ($params, $tgKind, $tgText, $tgPhoto): void {
+            if ($tgKind === null || $tgText === '') {
+                return;
+            }
+            (new TelegramClient($params))->notify((string) $tgKind, (string) $tgText, (string) $tgPhoto);
+        });
     }
 
     /** Bot checks + phone normalisation shared by lookup and send. */
@@ -1055,6 +1304,34 @@ class AjaxController extends BaseController
         return filter_var($ip, FILTER_VALIDATE_IP) ? $ip : '0.0.0.0';
     }
 
+    /**
+     * Trusted search-engine crawlers and monitoring bots may bypass rate limits.
+     * Enabled by default so SEO and uptime checks are not blocked.
+     */
+    private function isTrustedBot(): bool
+    {
+        if ((int) $this->params()->get('bot_bypass_enabled', 1) !== 1) {
+            return false;
+        }
+
+        $ua = strtolower((string) $this->input->server->get('HTTP_USER_AGENT', '', 'string'));
+        if ($ua === '') {
+            return false;
+        }
+
+        $raw = (string) $this->params()->get('bot_useragents', '');
+        foreach (preg_split('/[\r\n,;]+/', $raw) ?: [] as $line) {
+            $id = strtolower(trim($line));
+            // Strip optional "(internal)" suffix used in docs
+            $id = preg_replace('/\s*\(internal\)\s*$/', '', $id) ?? $id;
+            if ($id !== '' && str_contains($ua, $id)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /** vsprintf that never throws on placeholder mismatch. */
     private function safeFormat(string $langKey, ...$args): string
     {
@@ -1106,8 +1383,8 @@ class AjaxController extends BaseController
         $payload = ['ok' => false, 'error' => $error, 'message' => $message];
 
         ErrorLogger::write('AJAX_FAIL:' . $error, [
-            'ip' => $this->clientIp(),
-            'detail' => $message,
+            'ip'     => $this->clientIp(),
+            'detail' => $error, // machine code only; dashboard maps to a short label
         ]);
 
         if ($retry > 0) {
@@ -1121,13 +1398,16 @@ class AjaxController extends BaseController
         $this->respond($payload, $status);
     }
 
-    private function respond(array $data, int $status = 200): never
+    /**
+     * Send JSON to the browser immediately. Optional $after runs only after the
+     * response is flushed (fastcgi_finish_request) so Telegram/etc. never delay login.
+     */
+    private function respond(array $data, int $status = 200, ?callable $after = null): never
     {
         $app = $this->app;
         $app->setHeader('Content-Type', 'application/json; charset=utf-8', true);
         $app->setHeader('Cache-Control', 'no-store, max-age=0', true);
         $app->setHeader('X-Content-Type-Options', 'nosniff', true);
-        // SiteApplication has no setResponseCode(); Joomla reads the 'status' header instead.
         http_response_code($status);
         $app->setHeader('status', (string) $status, true);
         $app->sendHeaders();
@@ -1137,6 +1417,30 @@ class AjaxController extends BaseController
         }
 
         echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        // Flush to client before slow side-effects (Telegram, etc.)
+        if (\function_exists('fastcgi_finish_request')) {
+            @\fastcgi_finish_request();
+        } else {
+            while (\ob_get_level() > 0) {
+                @\ob_end_flush();
+            }
+            @\flush();
+        }
+
+        // Keep running after client disconnect so Telegram (or other after-hooks) can finish.
+        @ignore_user_abort(true);
+        if (\function_exists('set_time_limit')) {
+            @set_time_limit(20);
+        }
+
+        if ($after !== null) {
+            try {
+                $after();
+            } catch (\Throwable $e) {
+                // never break the already-sent response
+            }
+        }
 
         $app->close();
         exit;
