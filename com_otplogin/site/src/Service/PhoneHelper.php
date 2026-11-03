@@ -2,7 +2,7 @@
 /**
  * @package     Otplogin
  * @license     GNU General Public License version 2 or later
- * @copyright (C) 2026 Reza Esfandiari; Fork origin: YadakGostar/OTPlogin; original extension: OTP Login.
+ * @copyright (C) 2026 Reza Esfandiari.
  */
 
 namespace Otplogin\Component\Otplogin\Site\Service;
