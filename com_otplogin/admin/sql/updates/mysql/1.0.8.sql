@@ -1,4 +1,4 @@
--- Copyright (C) 2026 Reza Esfandiari; licensed under GNU General Public License version 2 or later.
+-- Copyright (C) 2026 Reza Esfandiari; Author: Reza Esfandiari; Website: https://www.yadakgostar.co; licensed under GNU General Public License version 2 or later.
 -- OTP Login 1.0.8 — ensure all tables exist (idempotent)
 CREATE TABLE IF NOT EXISTS `#__otplogin_codes` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,

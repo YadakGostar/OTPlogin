@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2026 Reza Esfandiari; licensed under GNU General Public License version 2 or later. -->
+<!-- Copyright (C) 2026 Reza Esfandiari; Author: Reza Esfandiari; Website: https://www.yadakgostar.co; licensed under GNU General Public License version 2 or later. -->
 <config>
     <fieldset name="ippanel" label="COM_OTPLOGIN_FS_SMS" description="COM_OTPLOGIN_FS_SMS_DESC">
         <field name="sms_provider" type="list" label="COM_OTPLOGIN_SMS_PROVIDER" description="COM_OTPLOGIN_SMS_PROVIDER_DESC" default="ippanel">
