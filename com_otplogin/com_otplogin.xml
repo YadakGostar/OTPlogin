@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- Copyright (C) 2026 Reza Esfandiari; licensed under GNU General Public License version 2 or later. -->
 <extension type="component" method="upgrade">
-    <name>com_otplogin</name>
+    <name>OTP Login</name>
     <author>Reza Esfandiari</author>
     <authorUrl>https://www.yadakgostar.co</authorUrl>
     <creationDate>2026-10-18</creationDate>
