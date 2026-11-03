@@ -2,6 +2,7 @@
 /**
  * @package     Otplogin
  * @license     GNU General Public License version 2 or later
+ * @copyright (C) 2026 Reza Esfandiari; Fork origin: YadakGostar/OTPlogin; original extension: OTP Login.
  */
 
 namespace Otplogin\Component\Otplogin\Administrator\Field;

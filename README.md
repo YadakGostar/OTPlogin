@@ -1,7 +1,8 @@
 # OTP Login for Joomla 6+
 
-**Version:** 1.0.0  
-**Publisher:** Reza Esfandiari  
+**Version:** 1.1.21
+**Publisher:** Reza Esfandiari
+**Copyright:** (C) 2026 Reza Esfandiari
 **Website:** https://www.yadakgostar.co  
 **License:** GPL-2.0-or-later  
 **Requirements:** Joomla 6+, PHP 8.3+
@@ -33,7 +34,7 @@ OTP login and registration extension for Joomla 6+ and the latest PHP. Publisher
 
 ## Install
 
-1. Extension → Install → upload `pkg_otplogin-1.0.0.zip`  
+1. Extension → Install → upload `pkg_otplogin-1.1.21.zip`
 2. Configure **Components → OTP Login** (SMS provider, limits)  
 3. Publish the **OTP Login** module on your site  
 4. Enable plugins: Authentication – OTP Login, User – OTP Login Photo  

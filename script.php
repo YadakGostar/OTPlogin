@@ -2,6 +2,7 @@
 /**
  * @package     Otplogin
  * @license     GNU General Public License version 2 or later
+ * @copyright (C) 2026 Reza Esfandiari; Fork origin: YadakGostar/OTPlogin; original extension: OTP Login.
  */
 
 \defined('_JEXEC') or die;
@@ -14,7 +15,7 @@ class Pkg_OtploginInstallerScript
 {
     private string $minPhp = '8.3.0';
     private string $minJoomla = '6.0.0';
-    private string $schemaVersion = '1.1.16';
+    private string $schemaVersion = '1.1.21';
 
     public function preflight(string $type, InstallerAdapter $parent): bool
     {

@@ -1,1 +1,2 @@
+-- Copyright (C) 2026 Reza Esfandiari; licensed under GNU General Public License version 2 or later.
 -- OTP Login 1.1.17 performance

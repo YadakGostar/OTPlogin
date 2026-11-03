@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (C) 2026 Reza Esfandiari; licensed under GNU General Public License version 2 or later. -->
+<!-- Fork origin: YadakGostar/OTPlogin; original extension: OTP Login. -->
 <extension type="component" method="upgrade">
     <name>com_otplogin</name>
     <author>Reza Esfandiari</author>

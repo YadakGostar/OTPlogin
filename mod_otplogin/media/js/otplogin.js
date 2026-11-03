@@ -1,3 +1,4 @@
+/* Copyright (C) 2026 Reza Esfandiari; licensed under GNU General Public License version 2 or later. */
 /**
  * mod_otplogin front-end. Vanilla JS, no dependencies.
  * Steps: phone -> code -> (choice -> register | link) -> redirect

@@ -2,6 +2,7 @@
 /**
  * @package     Otplogin
  * @license     GNU General Public License version 2 or later
+ * @copyright (C) 2026 Reza Esfandiari; Fork origin: YadakGostar/OTPlogin; original extension: OTP Login.
  */
 
 namespace Otplogin\Component\Otplogin\Administrator\View\Dashboard;
@@ -346,7 +347,7 @@ class HtmlView extends BaseHtmlView
     /** Load installed version from #__extensions and optionally check the remote update server. */
     private function loadVersionAndUpdates(): void
     {
-        $this->extensionVersion  = '1.1.15';
+        $this->extensionVersion  = '1.1.21';
         $this->latestVersion     = '';
         $this->updateAvailable   = false;
         $this->updateDownloadUrl = '';

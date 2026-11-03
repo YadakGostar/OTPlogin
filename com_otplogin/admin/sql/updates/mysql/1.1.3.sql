@@ -1,3 +1,4 @@
+-- Copyright (C) 2026 Reza Esfandiari; licensed under GNU General Public License version 2 or later.
 CREATE TABLE IF NOT EXISTS `#__otplogin_codes` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `phone` varchar(11) NOT NULL,
