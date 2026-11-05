@@ -2,7 +2,10 @@
 /**
  * @package     Otplogin
  * @license     GNU General Public License version 2 or later
- */
+ 
+ * @copyright (C) 2026 Reza Esfandiari
+ * @author    Reza Esfandiari
+ * @link      https://www.yadakgostar.co*/
 
 namespace Otplogin\Component\Otplogin\Site\Service;
 
@@ -10,6 +13,8 @@ namespace Otplogin\Component\Otplogin\Site\Service;
 
 /**
  * Iranian mobile number helpers (normalisation, variants, masking).
+ * User input must be 10 digits starting with 9 (no leading zero), e.g. 9123456789.
+ * Stored / compared internally as 09XXXXXXXXX.
  */
 final class PhoneHelper
 {
@@ -20,20 +25,29 @@ final class PhoneHelper
         '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9',
     ];
 
-    /** Returns the canonical 09XXXXXXXXX form, or null when the input is not an Iranian mobile number. */
+    /**
+     * Accept only 9XXXXXXXXX (10 digits, no leading zero).
+     * Returns canonical 09XXXXXXXXX for storage, or null when invalid.
+     */
     public static function normalize(string $raw): ?string
     {
         $digits = preg_replace('/\D+/', '', strtr(trim($raw), self::DIGITS)) ?? '';
 
-        if (str_starts_with($digits, '0098')) {
-            $digits = '0' . substr($digits, 4);
-        } elseif (str_starts_with($digits, '98') && \strlen($digits) === 12) {
-            $digits = '0' . substr($digits, 2);
-        } elseif (\strlen($digits) === 10 && $digits[0] === '9') {
-            $digits = '0' . $digits;
+        // Leading zero is not allowed (0912… → error)
+        if ($digits !== '' && $digits[0] === '0') {
+            return null;
         }
 
-        return preg_match('/^09\d{9}$/', $digits) ? $digits : null;
+        // Optional international forms typed without a leading 0: 98912… / 009812… already handled above if start with 0
+        if (str_starts_with($digits, '98') && \strlen($digits) === 12) {
+            $digits = substr($digits, 2); // → 9XXXXXXXXX
+        }
+
+        if (!preg_match('/^9\d{9}$/', $digits)) {
+            return null;
+        }
+
+        return '0' . $digits;
     }
 
     /** ASCII digits only (accepts Persian / Arabic-Indic digits), used for the typed code. */

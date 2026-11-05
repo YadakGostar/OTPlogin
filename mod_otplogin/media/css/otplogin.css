@@ -1,3 +1,4 @@
+/* Copyright (C) 2026 Reza Esfandiari; Author: Reza Esfandiari; Website: https://www.yadakgostar.co; licensed under GNU General Public License version 2 or later. */
 /*
  * mod_otplogin — glass popup style (matches sample screens)
  */
@@ -1594,7 +1595,7 @@ html[dir="rtl"] .otp.style3 input[type="tel"]::placeholder {
 .otp-cam {
   position: fixed;
   inset: 0;
-  z-index: 100000;
+  z-index: 2147483001;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1739,3 +1740,273 @@ a.otp-user__btn.is-disabled,
 .otp-welcome__title { margin: 0 0 .35rem; font-size: 1.25rem; font-weight: 800; color: #1e293b; }
 .otp-welcome__text { margin: 0 0 1rem; color: #64748b; font-size: .95rem; }
 .otp-welcome__card .otp-user__btn { width: 100%; margin: .35rem 0; }
+
+/* After login: full-screen welcome (portal on body avoids parent overflow clip) */
+.otp-welcome-portal {
+  position: fixed !important;
+  inset: 0 !important;
+  z-index: 2147483001 !important;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(15, 23, 42, 0.55);
+  backdrop-filter: blur(6px);
+  box-sizing: border-box;
+  overflow: auto;
+}
+.otp--signed-in.otp--welcome-open {
+  position: relative !important;
+  inset: auto !important;
+  z-index: 1 !important;
+  display: block !important;
+  max-width: 36rem !important;
+  width: min(96vw, 36rem) !important;
+  margin: auto !important;
+  padding: 0 !important;
+  /* Keep glass colours — do NOT force transparent */
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(249, 250, 251, 0.96) 100%) !important;
+  border: 1px solid rgba(255, 255, 255, 0.45) !important;
+  border-radius: 1.25rem !important;
+  box-shadow:
+    0 25px 60px rgba(0, 0, 0, 0.28),
+    0 8px 32px rgba(102, 126, 234, 0.18),
+    inset 0 1px 0 rgba(255, 255, 255, 0.7) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  overflow: hidden !important;
+  animation: otpWelcomeIn 0.35s ease;
+}
+.otp--signed-in.otp--welcome-open .otp-user {
+  position: relative;
+  z-index: 1;
+  max-width: 100%;
+  width: 100%;
+  margin: 0 auto;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  background: transparent;
+}
+.otp-user__timer {
+  display: block;
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+  color: #7c3aed;
+  font-weight: 600;
+}
+@keyframes otpWelcomeIn {
+  from { opacity: 0; transform: translateY(16px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.otp__divider {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin: 0.85rem 0 0.5rem;
+  color: #9ca3af;
+  font-size: 0.8rem;
+}
+.otp__divider::before,
+.otp__divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #e5e7eb;
+}
+.otp__link--userpass {
+  font-weight: 600;
+}
+
+
+/* Username/password fields: RTL right-align for FA, LTR left-align for EN */
+.otp__step[data-step="userpass"][dir="rtl"] .otp__input--userpass,
+.otp__step[data-step="userpass"] .otp__input--userpass[dir="rtl"] {
+  direction: rtl;
+  text-align: right;
+  unicode-bidi: plaintext;
+}
+.otp__step[data-step="userpass"][dir="ltr"] .otp__input--userpass,
+.otp__step[data-step="userpass"] .otp__input--userpass[dir="ltr"] {
+  direction: ltr;
+  text-align: left;
+  unicode-bidi: plaintext;
+}
+.otp__step[data-step="userpass"][dir="rtl"] .otp__label,
+.otp__step[data-step="userpass"][dir="rtl"] .otp__hint {
+  text-align: right;
+  direction: rtl;
+}
+.otp__step[data-step="userpass"][dir="ltr"] .otp__label,
+.otp__step[data-step="userpass"][dir="ltr"] .otp__hint {
+  text-align: left;
+  direction: ltr;
+}
+
+/* Desktop welcome: larger card */
+@media (min-width: 768px) {
+  .otp--signed-in.otp--welcome-open {
+    max-width: 40rem !important;
+    width: min(92vw, 40rem) !important;
+  }
+  .otp-welcome-portal {
+    padding: 2rem;
+  }
+}
+
+.otp-profile {
+  margin: 0.75rem 0 1rem;
+  padding: 1rem 1.1rem 1.15rem;
+  border-radius: 1rem;
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid rgba(102, 126, 234, 0.18);
+  box-shadow: 0 8px 24px rgba(102, 126, 234, 0.08);
+  text-align: start;
+}
+.otp-profile__hint {
+  margin: 0 0 0.85rem;
+  font-size: 0.9rem;
+  color: #5b21b6;
+  font-weight: 600;
+  line-height: 1.5;
+}
+.otp-profile .otp__label {
+  margin-top: 0.5rem;
+  font-size: 0.85rem;
+}
+.otp-profile .otp__input {
+  margin-bottom: 0.35rem;
+}
+.otp-profile__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin-top: 0.85rem;
+}
+.otp-user__btn--save {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+  color: #fff !important;
+  border: none !important;
+}
+.otp-profile__msg {
+  margin: 0.6rem 0 0;
+  font-size: 0.85rem;
+  color: #047857;
+  min-height: 1.2em;
+}
+
+
+/* Profile edit fields: FA right / EN left */
+.otp-profile[dir="rtl"],
+.otp-profile[dir="rtl"] .otp-profile__hint,
+.otp-profile[dir="rtl"] .otp-profile__label,
+.otp-profile[dir="rtl"] .otp__label {
+  direction: rtl;
+  text-align: right;
+}
+.otp-profile[dir="rtl"] .otp-profile__input,
+.otp-profile[dir="rtl"] .otp__input {
+  direction: rtl;
+  text-align: right;
+  unicode-bidi: plaintext;
+}
+.otp-profile[dir="ltr"],
+.otp-profile[dir="ltr"] .otp-profile__hint,
+.otp-profile[dir="ltr"] .otp-profile__label,
+.otp-profile[dir="ltr"] .otp__label {
+  direction: ltr;
+  text-align: left;
+}
+.otp-profile[dir="ltr"] .otp-profile__input,
+.otp-profile[dir="ltr"] .otp__input {
+  direction: ltr;
+  text-align: left;
+  unicode-bidi: plaintext;
+}
+
+/* Password show/hide */
+.otp-passwrap {
+  position: relative;
+  display: block;
+  width: 100%;
+}
+.otp-passwrap .otp__input {
+  width: 100%;
+  padding-inline-end: 2.75rem;
+  box-sizing: border-box;
+}
+.otp-passwrap__toggle {
+  position: absolute;
+  inset-inline-end: 0.55rem;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0.25rem;
+  opacity: 0.7;
+  z-index: 2;
+}
+.otp-passwrap__toggle:hover {
+  opacity: 1;
+}
+
+.otp__passkey-hint,
+.otp-user__passkey-hint {
+  margin: 0.35rem 0 0.6rem;
+  font-size: 0.78rem;
+  line-height: 1.45;
+  color: #6b7280;
+  text-align: start;
+}
+
+/* QR barcode centered */
+.otp__step[data-step="qr"] {
+  text-align: center;
+}
+.otp__step[data-step="qr"] .otp__label,
+.otp__step[data-step="qr"] .otp__hint {
+  text-align: center;
+}
+.otp__qr {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: 1rem auto;
+  text-align: center;
+  width: 100%;
+}
+.otp__qr canvas,
+.otp__qr [data-qr-canvas] {
+  display: block;
+  margin: 0 auto;
+  max-width: 100%;
+  height: auto;
+}
+.otp__qr-token {
+  margin: 0.75rem auto 0;
+  text-align: center;
+  font-size: 0.75rem;
+  color: #6b7280;
+  word-break: break-all;
+  max-width: 16rem;
+}
+
+.otp-passwrap .otp__input {
+  padding-inline-end: 2.85rem !important;
+}
+.otp-passwrap__toggle {
+  color: #6b7280;
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  min-width: auto !important;
+  width: auto !important;
+  height: auto !important;
+  padding: 0.35rem !important;
+}

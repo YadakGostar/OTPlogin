@@ -1,0 +1,2 @@
+-- Copyright (C) 2026 Reza Esfandiari; Author: Reza Esfandiari; Website: https://www.yadakgostar.co; licensed under GNU General Public License version 2 or later.
+-- OTP Login 1.1.22 — no schema changes

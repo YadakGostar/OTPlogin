@@ -1,4 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- Copyright (C) 2026 Reza Esfandiari; licensed under GNU General Public License version 2 or later. -->
 <config>
     <fieldset name="ippanel" label="COM_OTPLOGIN_FS_SMS" description="COM_OTPLOGIN_FS_SMS_DESC">
         <field name="sms_provider" type="list" label="COM_OTPLOGIN_SMS_PROVIDER" description="COM_OTPLOGIN_SMS_PROVIDER_DESC" default="ippanel">
@@ -17,7 +18,7 @@
         <field name="twilio_token" type="password" label="COM_OTPLOGIN_TWILIO_TOKEN" description="COM_OTPLOGIN_TWILIO_TOKEN_DESC" autocomplete="off" class="w-100" showon="sms_provider:twilio" />
         <field name="twilio_from" type="text" label="COM_OTPLOGIN_TWILIO_FROM" description="COM_OTPLOGIN_TWILIO_FROM_DESC" hint="+1234567890" dir="ltr" showon="sms_provider:twilio" />
         <field name="twilio_body" type="textarea" label="COM_OTPLOGIN_TWILIO_BODY" description="COM_OTPLOGIN_TWILIO_BODY_DESC" rows="3" default="Your verification code is: {code}" class="w-100" showon="sms_provider:twilio" />
-        <field name="request_timeout" type="number" label="COM_OTPLOGIN_TIMEOUT" description="COM_OTPLOGIN_TIMEOUT_DESC" default="10" min="3" max="30" filter="integer" />
+        <field name="request_timeout" type="number" label="COM_OTPLOGIN_TIMEOUT" description="COM_OTPLOGIN_TIMEOUT_DESC" default="8" min="3" max="20" filter="integer" />
         <field name="dry_run" type="radio" label="COM_OTPLOGIN_DRY_RUN" description="COM_OTPLOGIN_DRY_RUN_DESC" layout="joomla.form.field.radio.switcher" default="0" filter="integer">
             <option value="0">JNO</option>
             <option value="1">JYES</option>
@@ -44,7 +45,7 @@
             <option value="0">JNO</option>
             <option value="1">JYES</option>
         </field>
-        <field name="pow_difficulty" type="number" label="COM_OTPLOGIN_POW_DIFF" description="COM_OTPLOGIN_POW_DIFF_DESC" default="16" min="12" max="22" filter="integer" />
+        <field name="pow_difficulty" type="number" label="COM_OTPLOGIN_POW_DIFF" description="COM_OTPLOGIN_POW_DIFF_DESC" default="13" min="12" max="22" filter="integer" />
         <field name="lookup_hourly_max" type="number" label="COM_OTPLOGIN_LOOKUP_HOURLY_MAX" description="COM_OTPLOGIN_LOOKUP_HOURLY_MAX_DESC" default="30" min="0" max="1000" filter="integer" />
         <field name="global_daily_max" type="number" label="COM_OTPLOGIN_GLOBAL_DAILY_MAX" description="COM_OTPLOGIN_GLOBAL_DAILY_MAX_DESC" default="500" min="0" max="1000000" filter="integer" />
         <field name="phone_fail_max" type="number" label="COM_OTPLOGIN_PHONE_FAIL_MAX" description="COM_OTPLOGIN_PHONE_FAIL_MAX_DESC" default="8" min="0" max="100" filter="integer" />
@@ -53,6 +54,12 @@
         <field name="ip_register_max" type="number" label="COM_OTPLOGIN_IP_REGISTER_MAX" description="COM_OTPLOGIN_ZERO_UNLIMITED" default="5" min="0" max="1000" filter="integer" />
         <field name="min_form_seconds" type="number" label="COM_OTPLOGIN_MIN_FORM_SECONDS" description="COM_OTPLOGIN_MIN_FORM_SECONDS_DESC" default="0" min="0" max="30" filter="integer" />
         <field name="ip_header" type="text" label="COM_OTPLOGIN_IP_HEADER" description="COM_OTPLOGIN_IP_HEADER_DESC" default="HTTP_X_FORWARDED_FOR" hint="HTTP_X_FORWARDED_FOR" dir="ltr" />
+        <field name="bot_bypass_enabled" type="radio" label="COM_OTPLOGIN_BOT_BYPASS" description="COM_OTPLOGIN_BOT_BYPASS_DESC" layout="joomla.form.field.radio.switcher" default="1" filter="integer">
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+        <field name="bot_useragents" type="textarea" label="COM_OTPLOGIN_BOT_USERAGENTS" description="COM_OTPLOGIN_BOT_USERAGENTS_DESC" rows="8" default="googlebot&#10;bingbot&#10;slurp&#10;duckduckbot&#10;baiduspider&#10;yandexbot&#10;sogou&#10;exabot&#10;facebot&#10;ia_archiver&#10;uptimerobot&#10;pingdom&#10;gtmetrix&#10;lighthouse&#10;pagespeed&#10;semrush&#10;ahrefs&#10;cloudflare&#10;datadoghq&#10;site24x7" class="w-100" dir="ltr" filter="raw" />
+
     </fieldset>
 
     <fieldset name="users" label="COM_OTPLOGIN_FS_USERS" description="COM_OTPLOGIN_FS_USERS_DESC" addfieldprefix="Otplogin\Component\Otplogin\Administrator\Field">
@@ -67,17 +74,25 @@
             <option value="optional">COM_OTPLOGIN_OPT_OPTIONAL</option>
             <option value="off">COM_OTPLOGIN_OPT_OFF</option>
         </field>
-        <field name="ask_email" type="list" label="COM_OTPLOGIN_ASK_EMAIL" default="optional">
-            <option value="required">COM_OTPLOGIN_OPT_REQUIRED</option>
-            <option value="optional">COM_OTPLOGIN_OPT_OPTIONAL</option>
+        <field name="ask_email" type="list" label="COM_OTPLOGIN_ASK_EMAIL" description="COM_OTPLOGIN_ASK_EMAIL_DESC" default="off">
             <option value="off">COM_OTPLOGIN_OPT_OFF</option>
         </field>
         <field name="fake_email_domain" type="text" label="COM_OTPLOGIN_FAKE_EMAIL" description="COM_OTPLOGIN_FAKE_EMAIL_DESC" dir="ltr" />
+        <field name="email_block_disposable" type="radio" label="COM_OTPLOGIN_EMAIL_BLOCK_DISPOSABLE" description="COM_OTPLOGIN_EMAIL_BLOCK_DISPOSABLE_DESC" layout="joomla.form.field.radio.switcher" default="1" filter="integer">
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+        <field name="email_blocked_domains" type="textarea" label="COM_OTPLOGIN_EMAIL_BLOCKED_DOMAINS" description="COM_OTPLOGIN_EMAIL_BLOCKED_DOMAINS_DESC" rows="6" default="tempmail.com&#10;10minutemail.com&#10;guerrillamail.com&#10;mailinator.com&#10;yopmail.com&#10;temp-mail.org&#10;throwaway.email&#10;trashmail.com&#10;getnada.com&#10;maildrop.cc" class="w-100" dir="ltr" filter="raw" />
+        <field name="email_allowlist_enabled" type="radio" label="COM_OTPLOGIN_EMAIL_ALLOWLIST" description="COM_OTPLOGIN_EMAIL_ALLOWLIST_DESC" layout="joomla.form.field.radio.switcher" default="0" filter="integer">
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+        <field name="email_allowed_domains" type="textarea" label="COM_OTPLOGIN_EMAIL_ALLOWED_DOMAINS" description="COM_OTPLOGIN_EMAIL_ALLOWED_DOMAINS_DESC" rows="5" default="gmail.com&#10;yahoo.com&#10;outlook.com&#10;hotmail.com&#10;live.com&#10;icloud.com" class="w-100" dir="ltr" filter="raw" />
         <field name="link_enabled" type="radio" label="COM_OTPLOGIN_LINK" description="COM_OTPLOGIN_LINK_DESC" layout="joomla.form.field.radio.switcher" default="1" filter="integer">
             <option value="0">JNO</option>
             <option value="1">JYES</option>
         </field>
-        <field name="block_superusers" type="radio" label="COM_OTPLOGIN_BLOCK_SUPER" description="COM_OTPLOGIN_BLOCK_SUPER_DESC" layout="joomla.form.field.radio.switcher" default="1" filter="integer">
+        <field name="block_superusers" type="radio" label="COM_OTPLOGIN_BLOCK_SUPER" description="COM_OTPLOGIN_BLOCK_SUPER_DESC" layout="joomla.form.field.radio.switcher" default="0" filter="integer">
             <option value="0">JNO</option>
             <option value="1">JYES</option>
         </field>
@@ -96,7 +111,14 @@
         </field>
         <field name="profile_key" type="text" label="COM_OTPLOGIN_PROFILE_KEY" description="COM_OTPLOGIN_PROFILE_KEY_DESC" default="otplogin.phone" dir="ltr" />
         <field name="lookup_field_id" type="number" label="COM_OTPLOGIN_LOOKUP_FIELD" description="COM_OTPLOGIN_LOOKUP_FIELD_DESC" default="0" min="0" filter="integer" />
+        <field name="welcome_seconds" type="number" label="COM_OTPLOGIN_WELCOME_SECONDS" description="COM_OTPLOGIN_WELCOME_SECONDS_DESC" default="60" min="15" max="300" filter="integer" />
         <field name="redirect_url" type="text" label="COM_OTPLOGIN_REDIRECT" description="COM_OTPLOGIN_REDIRECT_DESC" class="w-100" dir="ltr" />
+        <field name="logout_redirect" type="text" label="COM_OTPLOGIN_LOGOUT_REDIRECT" description="COM_OTPLOGIN_LOGOUT_REDIRECT_DESC" class="w-100" dir="ltr" hint="index.php" />
+        <field name="session_lifetime_days" type="number" label="COM_OTPLOGIN_SESSION_DAYS" description="COM_OTPLOGIN_SESSION_DAYS_DESC" default="0" min="0" max="365" filter="integer" />
+        <field name="remember_default" type="radio" label="COM_OTPLOGIN_REMEMBER_DEFAULT" description="COM_OTPLOGIN_REMEMBER_DEFAULT_DESC" layout="joomla.form.field.radio.switcher" default="0" filter="integer">
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
     </fieldset>
 
     <fieldset name="password" label="COM_OTPLOGIN_FS_PASSWORD" description="COM_OTPLOGIN_FS_PASSWORD_DESC" addfieldprefix="Otplogin\Component\Otplogin\Administrator\Field">
@@ -151,9 +173,10 @@
             <option value="1">JYES</option>
         </field>
         <field name="telegram_bot_token" type="password" label="COM_OTPLOGIN_TG_TOKEN" description="COM_OTPLOGIN_TG_TOKEN_DESC" autocomplete="off" class="w-100" dir="ltr" />
+        <field name="telegram_logo_url" type="url" label="COM_OTPLOGIN_TG_LOGO" description="COM_OTPLOGIN_TG_LOGO_DESC" class="w-100" dir="ltr" hint="https://yadakgostar.co/images/logo.png" filter="url" />
         <field name="telegram_chat_id" type="text" label="COM_OTPLOGIN_TG_CHAT" description="COM_OTPLOGIN_TG_CHAT_DESC" dir="ltr" hint="91743383" />
         <field name="telegram_proxy" type="text" label="COM_OTPLOGIN_TG_PROXY" description="COM_OTPLOGIN_TG_PROXY_DESC" class="w-100" dir="ltr" hint="socks5://127.0.0.1:1080" />
-        <field name="telegram_timeout" type="number" label="COM_OTPLOGIN_TG_TIMEOUT" description="COM_OTPLOGIN_TG_TIMEOUT_DESC" default="15" min="5" max="60" filter="integer" />
+        <field name="telegram_timeout" type="number" label="COM_OTPLOGIN_TG_TIMEOUT" description="COM_OTPLOGIN_TG_TIMEOUT_DESC" default="5" min="2" max="15" filter="integer" />
         <field name="telegram_on_sms_error" type="radio" label="COM_OTPLOGIN_TG_ON_SMS_ERROR" layout="joomla.form.field.radio.switcher" default="1" filter="integer">
             <option value="0">JNO</option>
             <option value="1">JYES</option>
@@ -167,6 +190,34 @@
             <option value="1">JYES</option>
         </field>
         <field name="telegram_on_verify_fail" type="radio" label="COM_OTPLOGIN_TG_ON_VERIFY_FAIL" layout="joomla.form.field.radio.switcher" default="0" filter="integer">
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+    </fieldset>
+
+
+    <fieldset name="bale" label="COM_OTPLOGIN_FS_BALE" description="COM_OTPLOGIN_FS_BALE_DESC" addfieldprefix="Otplogin\Component\Otplogin\Administrator\Field">
+        <field name="reset_bale_defaults" type="defaultreset" section="bale" label="" />
+        <field name="bale_enabled" type="radio" label="COM_OTPLOGIN_BALE_ENABLED" description="COM_OTPLOGIN_BALE_ENABLED_DESC" layout="joomla.form.field.radio.switcher" default="0" filter="integer">
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+        <field name="bale_bot_token" type="password" label="COM_OTPLOGIN_BALE_TOKEN" description="COM_OTPLOGIN_BALE_TOKEN_DESC" autocomplete="off" class="w-100" dir="ltr" />
+        <field name="bale_chat_id" type="text" label="COM_OTPLOGIN_BALE_CHAT" description="COM_OTPLOGIN_BALE_CHAT_DESC" dir="ltr" hint="123456789" />
+        <field name="bale_timeout" type="number" label="COM_OTPLOGIN_BALE_TIMEOUT" description="COM_OTPLOGIN_BALE_TIMEOUT_DESC" default="5" min="2" max="15" filter="integer" />
+        <field name="bale_on_sms_error" type="radio" label="COM_OTPLOGIN_BALE_ON_SMS_ERROR" layout="joomla.form.field.radio.switcher" default="1" filter="integer">
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+        <field name="bale_on_login" type="radio" label="COM_OTPLOGIN_BALE_ON_LOGIN" layout="joomla.form.field.radio.switcher" default="0" filter="integer">
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+        <field name="bale_on_register" type="radio" label="COM_OTPLOGIN_BALE_ON_REGISTER" layout="joomla.form.field.radio.switcher" default="1" filter="integer">
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+        <field name="bale_on_verify_fail" type="radio" label="COM_OTPLOGIN_BALE_ON_VERIFY_FAIL" layout="joomla.form.field.radio.switcher" default="0" filter="integer">
             <option value="0">JNO</option>
             <option value="1">JYES</option>
         </field>

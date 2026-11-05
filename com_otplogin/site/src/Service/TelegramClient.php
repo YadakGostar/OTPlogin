@@ -2,7 +2,10 @@
 /**
  * @package     Otplogin
  * @license     GNU General Public License version 2 or later
- */
+ 
+ * @copyright (C) 2026 Reza Esfandiari
+ * @author    Reza Esfandiari
+ * @link      https://www.yadakgostar.co*/
 
 namespace Otplogin\Component\Otplogin\Site\Service;
 
@@ -59,13 +62,105 @@ final class TelegramClient
      *
      * @return array{ok:bool, error?:string, http?:int}
      */
-    public function notify(string $kind, string $text): array
+    public function notify(string $kind, string $text, string $photoUrl = ''): array
     {
         if (!$this->wants($kind)) {
             return ['ok' => false, 'error' => 'disabled'];
         }
 
+        $logo = trim($photoUrl) !== '' ? trim($photoUrl) : trim((string) $this->params->get('telegram_logo_url', ''));
+        if ($logo !== '' && preg_match('#^https?://#i', $logo)) {
+            $photoResult = $this->sendPhoto($logo, $text);
+            if ($photoResult['ok'] ?? false) {
+                return $photoResult;
+            }
+            // fall back to text if photo fails
+        }
+
         return $this->send($text);
+    }
+
+    /**
+     * Send photo (site logo) with HTML caption — shows logo in Telegram chat.
+     *
+     * @return array{ok:bool, error?:string, http?:int, body?:string}
+     */
+    public function sendPhoto(string $photoUrl, string $caption): array
+    {
+        if (!$this->isEnabled()) {
+            return ['ok' => false, 'error' => 'not_configured'];
+        }
+
+        if (!\function_exists('curl_init')) {
+            return ['ok' => false, 'error' => 'no_curl'];
+        }
+
+        $token  = trim((string) $this->params->get('telegram_bot_token'));
+        $chatId = trim((string) $this->params->get('telegram_chat_id'));
+        $url    = 'https://api.telegram.org/bot' . $token . '/sendPhoto';
+
+        // Caption max 1024 chars for Telegram
+        if (mb_strlen($caption) > 1000) {
+            $caption = mb_substr($caption, 0, 997) . '…';
+        }
+
+        $payload = [
+            'chat_id'    => $chatId,
+            'photo'      => $photoUrl,
+            'caption'    => $caption,
+            'parse_mode' => 'HTML',
+        ];
+
+        $ch = curl_init($url);
+        $opts = [
+            CURLOPT_POST           => true,
+            CURLOPT_POSTFIELDS     => json_encode($payload, JSON_UNESCAPED_UNICODE),
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => 3,
+            CURLOPT_TIMEOUT        => max(3, min(12, (int) $this->params->get('telegram_timeout', 5))),
+            CURLOPT_HTTPHEADER     => [
+                'Content-Type: application/json',
+                'Accept: application/json',
+            ],
+            CURLOPT_HTTP_VERSION   => CURL_HTTP_VERSION_1_1,
+            CURLOPT_SSL_VERIFYPEER => true,
+            CURLOPT_SSL_VERIFYHOST => 2,
+        ];
+
+        $proxy = trim((string) $this->params->get('telegram_proxy', ''));
+        if ($proxy !== '') {
+            $this->applyProxy($opts, $proxy);
+        }
+
+        curl_setopt_array($ch, $opts);
+        $raw    = curl_exec($ch);
+        $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $err    = curl_error($ch);
+        curl_close($ch);
+
+        $json = \is_string($raw) ? json_decode($raw, true) : null;
+
+        if ($status >= 200 && $status < 300 && \is_array($json) && ($json['ok'] ?? false) === true) {
+            return ['ok' => true];
+        }
+
+        $detail = \is_array($json) ? (string) ($json['description'] ?? '') : $err;
+        if ($detail === '' && $status === 0) {
+            $detail = $err !== '' ? $err : 'connection failed (timeout, DNS, SSL or blocked)';
+        }
+        Log::add(
+            'Telegram sendPhoto failed (http ' . $status . '): ' . $detail,
+            Log::WARNING,
+            'com_otplogin'
+        );
+
+        return [
+            'ok'     => false,
+            'error'  => $status === 0 ? 'connection' : 'api',
+            'http'   => $status,
+            'body'   => $detail !== '' ? substr($detail, 0, 300) : (\is_string($raw) ? substr($raw, 0, 300) : ''),
+            'detail' => $detail,
+        ];
     }
 
     /**
@@ -86,10 +181,11 @@ final class TelegramClient
         $url    = 'https://api.telegram.org/bot' . $token . '/sendMessage';
 
         $payload = [
-            'chat_id'    => $chatId,
-            'text'       => $text,
-            'parse_mode' => 'HTML',
-            'disable_web_page_preview' => true,
+            'chat_id'                  => $chatId,
+            'text'                     => $text,
+            'parse_mode'               => 'HTML',
+            // false → Telegram shows site logo / Open Graph preview for the URL in the message
+            'disable_web_page_preview' => false,
         ];
 
         $ch = curl_init($url);
@@ -97,8 +193,8 @@ final class TelegramClient
             CURLOPT_POST           => true,
             CURLOPT_POSTFIELDS     => json_encode($payload, JSON_UNESCAPED_UNICODE),
             CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CONNECTTIMEOUT => 8,
-            CURLOPT_TIMEOUT        => max(5, (int) $this->params->get('telegram_timeout', 15)),
+            CURLOPT_CONNECTTIMEOUT => 3,
+            CURLOPT_TIMEOUT        => max(3, min(12, (int) $this->params->get('telegram_timeout', 5))),
             CURLOPT_HTTPHEADER     => [
                 'Content-Type: application/json',
                 'Accept: application/json',
@@ -129,17 +225,26 @@ final class TelegramClient
         }
 
         $detail = \is_array($json) ? (string) ($json['description'] ?? '') : $err;
+        if ($detail === '' && $status === 0) {
+            $detail = $err !== '' ? $err : 'connection failed (timeout, DNS, SSL or blocked)';
+        }
         Log::add(
             'Telegram notify failed (http ' . $status . '): ' . $detail,
             Log::WARNING,
             'com_otplogin'
         );
 
+        $errorCode = 'api';
+        if ($status === 0) {
+            $errorCode = 'connection';
+        }
+
         return [
             'ok'     => false,
-            'error'  => 'api',
+            'error'  => $errorCode,
             'http'   => $status,
-            'body'   => \is_string($raw) ? substr($raw, 0, 300) : '',
+            'body'   => $detail !== '' ? substr($detail, 0, 300) : (\is_string($raw) ? substr($raw, 0, 300) : ''),
+            'detail' => $detail,
         ];
     }
 

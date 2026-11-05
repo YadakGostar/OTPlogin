@@ -2,7 +2,10 @@
 /**
  * @package     Otplogin
  * @license     GNU General Public License version 2 or later
- */
+ 
+ * @copyright (C) 2026 Reza Esfandiari
+ * @author    Reza Esfandiari
+ * @link      https://www.yadakgostar.co*/
 
 namespace Otplogin\Component\Otplogin\Site\Service;
 
@@ -54,7 +57,7 @@ final class OtpManager
     {
         $now = time();
 
-        if (random_int(1, 50) === 1) {
+        if (random_int(1, 200) === 1) {
             $this->limiter->purge();
         }
 
@@ -176,6 +179,19 @@ final class OtpManager
                         . '⚠️ <b>خطا:</b> ' . htmlspecialchars((string) ($result['detail'] ?? $result['error'] ?? '?'), ENT_QUOTES, 'UTF-8')
                         . ' (HTTP ' . (int) ($result['http'] ?? 0) . ')'
                     );
+
+                    try {
+                        $errLabel = (string) ($result['detail'] ?? $result['error'] ?? '?');
+                        $httpCode = (int) ($result['http'] ?? 0);
+                        (new BaleClient($this->params))->notify(
+                            'sms_error',
+                            "❌ خطای ارسال پیامک\n"
+                            . "──────────────\n"
+                            . "📱 شماره: " . $masked . "\n"
+                            . "⚠️ خطا: " . $errLabel . " (HTTP " . $httpCode . ")"
+                        );
+                    } catch (\Throwable $ignored) {
+                    }
                 } catch (\Throwable $e) {
                     // never break SMS flow
                 }

@@ -2,7 +2,10 @@
 /**
  * @package     Otplogin
  * @license     GNU General Public License version 2 or later
- */
+ 
+ * @copyright (C) 2026 Reza Esfandiari
+ * @author    Reza Esfandiari
+ * @link      https://www.yadakgostar.co*/
 
 namespace Otplogin\Component\Otplogin\Site\Service;
 
@@ -96,16 +99,24 @@ final class AvatarService
         }
 
         // Always re-encode to JPEG via GD (strips EXIF payloads / polyglot malware).
-        // File extension is fixed; original client filename is never used on disk.
+        // Filename = customer mobile (digits only). Fallback: u{userId}.
         $dir = JPATH_ROOT . '/images/otplogin/avatars';
-        $rel = 'images/otplogin/avatars/u' . $userId . '.jpg';
+        $fileBase = $this->fileBaseForUser($userId);
+        $rel = 'images/otplogin/avatars/' . $fileBase . '.jpg';
 
         if (!is_dir($dir) && !@mkdir($dir, 0755, true) && !is_dir($dir)) {
             return ['error' => 'avatar_save'];
         }
 
-        // Remove previous files for this user (any extension).
+        // Remove previous avatar for this user (by phone name and legacy u{id}).
+        $prev = $this->pathFor($userId);
+        if ($prev !== '' && is_file(JPATH_ROOT . '/' . $prev)) {
+            @unlink(JPATH_ROOT . '/' . $prev);
+        }
         foreach (glob($dir . '/u' . $userId . '.*') ?: [] as $oldFile) {
+            @unlink($oldFile);
+        }
+        foreach (glob($dir . '/' . $fileBase . '.*') ?: [] as $oldFile) {
             @unlink($oldFile);
         }
 
@@ -149,6 +160,50 @@ final class AvatarService
         )->execute();
 
         $this->syncExternal($userId, '');
+    }
+
+
+    /**
+     * Disk filename stem: mobile number digits (prefer 09XXXXXXXXX), else u{userId}.
+     */
+    private function fileBaseForUser(int $userId): string
+    {
+        $phoneKey = trim((string) $this->params->get('profile_key', 'otplogin.phone')) ?: 'otplogin.phone';
+        $candidates = [];
+
+        $raw = (string) $this->db->setQuery(
+            'SELECT `profile_value` FROM ' . $this->db->quoteName('#__user_profiles')
+            . ' WHERE `user_id` = ' . $userId
+            . ' AND `profile_key` = ' . $this->db->quote($phoneKey)
+            . ' LIMIT 1'
+        )->loadResult();
+        if ($raw !== '') {
+            $candidates[] = $raw;
+        }
+
+        $username = (string) $this->db->setQuery(
+            'SELECT `username` FROM ' . $this->db->quoteName('#__users')
+            . ' WHERE `id` = ' . $userId . ' LIMIT 1'
+        )->loadResult();
+        if ($username !== '') {
+            $candidates[] = $username;
+        }
+
+        foreach ($candidates as $cand) {
+            $digits = PhoneHelper::digits($cand);
+            // Accept stored 09XXXXXXXXX or typed 9XXXXXXXXX
+            if (preg_match('/^09\d{9}$/', $digits)) {
+                return $digits;
+            }
+            if (preg_match('/^9\d{9}$/', $digits)) {
+                return '0' . $digits;
+            }
+            if (preg_match('/^98(\d{10})$/', $digits, $m) && str_starts_with($m[1], '9')) {
+                return '0' . $m[1];
+            }
+        }
+
+        return 'u' . $userId;
     }
 
     private function setProfile(int $userId, string $value): void
