@@ -7,7 +7,7 @@
     <creationDate>2026-10-16</creationDate>
     <copyright>(C) 2026 Reza Esfandiari</copyright>
     <license>GNU General Public License version 2 or later</license>
-    <version>1.1.21</version>
+    <version>1.1.28</version>
     <phpminimum>8.3.0</phpminimum>
     <description>OTP login and registration extension for Joomla 6+ and the latest PHP. Publisher: Reza Esfandiari — https://www.yadakgostar.co</description>
     <files>

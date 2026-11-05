@@ -2,10 +2,10 @@
 /**
  * @package     Otplogin
  * @license     GNU General Public License version 2 or later
- * @copyright (C) 2026 Reza Esfandiari.
+ 
+ * @copyright (C) 2026 Reza Esfandiari
  * @author    Reza Esfandiari
- * @link      https://www.yadakgostar.co
- */
+ * @link      https://www.yadakgostar.co*/
 
 \defined('_JEXEC') or die;
 
@@ -17,7 +17,7 @@ class Pkg_OtploginInstallerScript
 {
     private string $minPhp = '8.3.0';
     private string $minJoomla = '6.0.0';
-    private string $schemaVersion = '1.1.21';
+    private string $schemaVersion = '1.1.28';
 
     public function preflight(string $type, InstallerAdapter $parent): bool
     {

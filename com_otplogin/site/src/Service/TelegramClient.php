@@ -2,10 +2,10 @@
 /**
  * @package     Otplogin
  * @license     GNU General Public License version 2 or later
- * @copyright (C) 2026 Reza Esfandiari.
+ 
+ * @copyright (C) 2026 Reza Esfandiari
  * @author    Reza Esfandiari
- * @link      https://www.yadakgostar.co
- */
+ * @link      https://www.yadakgostar.co*/
 
 namespace Otplogin\Component\Otplogin\Site\Service;
 
@@ -145,6 +145,9 @@ final class TelegramClient
         }
 
         $detail = \is_array($json) ? (string) ($json['description'] ?? '') : $err;
+        if ($detail === '' && $status === 0) {
+            $detail = $err !== '' ? $err : 'connection failed (timeout, DNS, SSL or blocked)';
+        }
         Log::add(
             'Telegram sendPhoto failed (http ' . $status . '): ' . $detail,
             Log::WARNING,
@@ -152,10 +155,11 @@ final class TelegramClient
         );
 
         return [
-            'ok'   => false,
-            'error'=> 'api',
-            'http' => $status,
-            'body' => \is_string($raw) ? substr($raw, 0, 300) : $err,
+            'ok'     => false,
+            'error'  => $status === 0 ? 'connection' : 'api',
+            'http'   => $status,
+            'body'   => $detail !== '' ? substr($detail, 0, 300) : (\is_string($raw) ? substr($raw, 0, 300) : ''),
+            'detail' => $detail,
         ];
     }
 
@@ -221,17 +225,26 @@ final class TelegramClient
         }
 
         $detail = \is_array($json) ? (string) ($json['description'] ?? '') : $err;
+        if ($detail === '' && $status === 0) {
+            $detail = $err !== '' ? $err : 'connection failed (timeout, DNS, SSL or blocked)';
+        }
         Log::add(
             'Telegram notify failed (http ' . $status . '): ' . $detail,
             Log::WARNING,
             'com_otplogin'
         );
 
+        $errorCode = 'api';
+        if ($status === 0) {
+            $errorCode = 'connection';
+        }
+
         return [
             'ok'     => false,
-            'error'  => 'api',
+            'error'  => $errorCode,
             'http'   => $status,
-            'body'   => \is_string($raw) ? substr($raw, 0, 300) : '',
+            'body'   => $detail !== '' ? substr($detail, 0, 300) : (\is_string($raw) ? substr($raw, 0, 300) : ''),
+            'detail' => $detail,
         ];
     }
 

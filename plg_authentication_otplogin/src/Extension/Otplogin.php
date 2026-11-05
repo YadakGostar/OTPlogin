@@ -2,10 +2,10 @@
 /**
  * @package     Otplogin
  * @license     GNU General Public License version 2 or later
- * @copyright (C) 2026 Reza Esfandiari.
+ 
+ * @copyright (C) 2026 Reza Esfandiari
  * @author    Reza Esfandiari
- * @link      https://www.yadakgostar.co
- */
+ * @link      https://www.yadakgostar.co*/
 
 namespace Otplogin\Plugin\Authentication\Otplogin\Extension;
 

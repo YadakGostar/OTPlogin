@@ -2,10 +2,10 @@
 /**
  * @package     Otplogin
  * @license     GNU General Public License version 2 or later
- * @copyright (C) 2026 Reza Esfandiari.
+ 
+ * @copyright (C) 2026 Reza Esfandiari
  * @author    Reza Esfandiari
- * @link      https://www.yadakgostar.co
- */
+ * @link      https://www.yadakgostar.co*/
 
 namespace Otplogin\Component\Otplogin\Administrator\View\Dashboard;
 
@@ -69,7 +69,11 @@ class HtmlView extends BaseHtmlView
         $sendOk   = $this->stats['send'];
         $sendFail = $this->stats['sms_error'];
         $sendAll  = $sendOk + $sendFail;
-        $rate     = $sendAll > 0 ? (int) round(100 * $sendOk / $sendAll) : 100;
+        // Avoid showing a misleading 100% when there is almost no data.
+        $rate = $sendAll > 0 ? (int) round(100 * $sendOk / $sendAll) : null;
+
+        // Pure OTP-based sign-ins (exclude password logins which do not use SMS).
+        $otpLogins = $this->stats['login'] + $this->stats['register'];
 
         $this->cards = [
             'fail' => [
@@ -89,7 +93,9 @@ class HtmlView extends BaseHtmlView
             'total' => [
                 'value' => $sendAll,
                 'label' => 'COM_OTPLOGIN_CARD_SMS_TOTAL',
-                'hint'  => Text::sprintf('COM_OTPLOGIN_CARD_SMS_TOTAL_HINT', $rate),
+                'hint'  => $rate === null
+                    ? Text::_('COM_OTPLOGIN_CARD_SMS_TOTAL_HINT_NONE')
+                    : Text::sprintf('COM_OTPLOGIN_CARD_SMS_TOTAL_HINT', $rate),
                 'tone'  => 'success',
                 'icon'  => 'comments',
                 'raw_hint' => true,
@@ -102,7 +108,7 @@ class HtmlView extends BaseHtmlView
                 'icon'  => 'envelope',
             ],
             'sms_login' => [
-                'value' => $this->stats['login'] + $this->stats['login_pass'],
+                'value' => $otpLogins,
                 'label' => 'COM_OTPLOGIN_CARD_SMS_LOGIN',
                 'hint'  => Text::sprintf('COM_OTPLOGIN_CARD_SMS_LOGIN_HINT', $sendOk),
                 'tone'  => 'teal',
@@ -349,7 +355,7 @@ class HtmlView extends BaseHtmlView
     /** Load installed version from #__extensions and optionally check the remote update server. */
     private function loadVersionAndUpdates(): void
     {
-        $this->extensionVersion  = '1.1.21';
+        $this->extensionVersion  = '1.1.28';
         $this->latestVersion     = '';
         $this->updateAvailable   = false;
         $this->updateDownloadUrl = '';

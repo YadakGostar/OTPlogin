@@ -2,10 +2,10 @@
 /**
  * @package     Otplogin
  * @license     GNU General Public License version 2 or later
- * @copyright (C) 2026 Reza Esfandiari.
+ 
+ * @copyright (C) 2026 Reza Esfandiari
  * @author    Reza Esfandiari
- * @link      https://www.yadakgostar.co
- */
+ * @link      https://www.yadakgostar.co*/
 
 namespace Otplogin\Component\Otplogin\Site\Controller;
 
@@ -30,6 +30,7 @@ use Otplogin\Component\Otplogin\Site\Service\PasskeyService;
 use Otplogin\Component\Otplogin\Site\Service\PhoneHelper;
 use Otplogin\Component\Otplogin\Site\Service\QrLoginService;
 use Otplogin\Component\Otplogin\Site\Service\RateLimiter;
+use Otplogin\Component\Otplogin\Site\Service\BaleClient;
 use Otplogin\Component\Otplogin\Site\Service\TelegramClient;
 
 /**
@@ -1034,9 +1035,10 @@ class AjaxController extends BaseController
         // (username/password logins often have no phone on the event row).
         $this->limiter()->record($kind, (string) $userId, $ip);
 
-        $tgKind  = null;
-        $tgText  = '';
-        $tgPhoto = '';
+        $tgKind   = null;
+        $tgText   = '';
+        $baleText = '';
+        $tgPhoto  = '';
 
         try {
             $titles = [
@@ -1089,20 +1091,40 @@ class AjaxController extends BaseController
                 $lines[] = '📱 <b>شماره:</b> ' . $ltr('<code>' . $esc($phoneShow) . '</code>');
             }
 
-                        $lines[] = '🔐 <b>روش:</b> ' . $esc($method);
+            $lines[] = '🔐 <b>روش:</b> ' . $esc($method);
             $lines[] = '🌐 <b>سایت:</b> ' . $esc($siteName);
             $lines[] = $ltr($esc($site));
             $lines[] = '🖥 <b>IP:</b> ' . $ltr('<code>' . $esc($ip !== '' ? $ip : '—') . '</code>');
 
-            // Defer Telegram until after JSON is flushed (see respond() below).
-            $tgKind = $kind;
-            $tgText = implode("\n", $lines);
+            // Plain multi-line text for Bale (HTML + LTR isolates often render as one line there).
+            $baleLines = [
+                $titleIcon . ' ' . $title,
+                '──────────────',
+                '🏷 نام: ' . ($name !== '' ? $name : '—'),
+                '👤 نام کاربری: ' . ($username !== '' ? $username : '—'),
+            ];
+            if ($email !== '') {
+                $baleLines[] = '📧 ایمیل: ' . $email;
+            }
+            if ($phoneShow !== '') {
+                $baleLines[] = '📱 شماره: ' . $phoneShow;
+            }
+            $baleLines[] = '🔐 روش: ' . $method;
+            $baleLines[] = '🌐 سایت: ' . $siteName;
+            $baleLines[] = '🔗 ' . $site;
+            $baleLines[] = '🖥 IP: ' . ($ip !== '' ? $ip : '—');
+
+            // Defer notifications until after JSON is flushed (see respond() below).
+            $tgKind   = $kind;
+            $tgText   = implode("\n", $lines);
+            $baleText = implode("\n", $baleLines);
             // Text-only is much faster than sendPhoto (Telegram must fetch the logo URL).
             $tgPhoto = '';
         } catch (\Throwable $e) {
-            $tgKind = null;
-            $tgText = '';
-            $tgPhoto = '';
+            $tgKind   = null;
+            $tgText   = '';
+            $baleText = '';
+            $tgPhoto  = '';
         }
         $session = $this->app->getSession();
         $session->clear('otplogin.verified');
@@ -1142,11 +1164,22 @@ class AjaxController extends BaseController
         }
 
         $params = $this->params();
-        $this->respond($response, 200, static function () use ($params, $tgKind, $tgText, $tgPhoto): void {
-            if ($tgKind === null || $tgText === '') {
+        $this->respond($response, 200, static function () use ($params, $tgKind, $tgText, $baleText, $tgPhoto): void {
+            if ($tgKind === null) {
                 return;
             }
-            (new TelegramClient($params))->notify((string) $tgKind, (string) $tgText, (string) $tgPhoto);
+            if ($tgText !== '') {
+                try {
+                    (new TelegramClient($params))->notify((string) $tgKind, (string) $tgText, (string) $tgPhoto);
+                } catch (\Throwable $e) {
+                }
+            }
+            if ($baleText !== '') {
+                try {
+                    (new BaleClient($params))->notify((string) $tgKind, (string) $baleText);
+                } catch (\Throwable $e) {
+                }
+            }
         });
     }
 

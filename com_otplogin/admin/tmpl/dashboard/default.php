@@ -2,10 +2,10 @@
 /**
  * @package     Otplogin
  * @license     GNU General Public License version 2 or later
- * @copyright (C) 2026 Reza Esfandiari.
+ 
+ * @copyright (C) 2026 Reza Esfandiari
  * @author    Reza Esfandiari
- * @link      https://www.yadakgostar.co
- */
+ * @link      https://www.yadakgostar.co*/
 
 \defined('_JEXEC') or die;
 
@@ -553,7 +553,7 @@ $logClass = static function (string $line): string {
     </div>
 
     <h2 class="h5 mt-2"><?php echo Text::_('COM_OTPLOGIN_TEST_TITLE'); ?></h2>
-    <form action="<?php echo Route::_('index.php?option=com_otplogin&task=test.send'); ?>" method="post" class="row g-2 align-items-end mb-4">
+    <form action="<?php echo Route::_('index.php?option=com_otplogin&task=test.send'); ?>" method="post" class="row g-2 align-items-end mb-3">
         <div class="col-auto">
             <label class="form-label" for="otp-test-phone"><?php echo Text::_('COM_OTPLOGIN_TEST_PHONE'); ?></label>
             <input type="tel" dir="ltr" class="form-control" id="otp-test-phone" name="phone" placeholder="9123456789" required>
@@ -562,6 +562,24 @@ $logClass = static function (string $line): string {
             <button type="submit" class="btn btn-primary"><?php echo Text::_('COM_OTPLOGIN_TEST_SEND'); ?></button>
         </div>
         <div class="col-12 form-text"><?php echo Text::_('COM_OTPLOGIN_TEST_DESC'); ?></div>
+        <?php echo HTMLHelper::_('form.token'); ?>
+    </form>
+
+    <h2 class="h5 mt-3"><?php echo Text::_('COM_OTPLOGIN_TG_TEST_TITLE'); ?></h2>
+    <form action="<?php echo Route::_('index.php?option=com_otplogin&task=test.telegram'); ?>" method="post" class="row g-2 align-items-end mb-3">
+        <div class="col-auto">
+            <button type="submit" class="btn btn-info text-white"><?php echo Text::_('COM_OTPLOGIN_TG_TEST_SEND'); ?></button>
+        </div>
+        <div class="col-12 form-text"><?php echo Text::_('COM_OTPLOGIN_TG_TEST_DESC'); ?></div>
+        <?php echo HTMLHelper::_('form.token'); ?>
+    </form>
+
+    <h2 class="h5 mt-3"><?php echo Text::_('COM_OTPLOGIN_BALE_TEST_TITLE'); ?></h2>
+    <form action="<?php echo Route::_('index.php?option=com_otplogin&task=test.bale'); ?>" method="post" class="row g-2 align-items-end mb-4">
+        <div class="col-auto">
+            <button type="submit" class="btn btn-success"><?php echo Text::_('COM_OTPLOGIN_BALE_TEST_SEND'); ?></button>
+        </div>
+        <div class="col-12 form-text"><?php echo Text::_('COM_OTPLOGIN_BALE_TEST_DESC'); ?></div>
         <?php echo HTMLHelper::_('form.token'); ?>
     </form>
 

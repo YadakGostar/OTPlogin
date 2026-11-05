@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2026 Reza Esfandiari; Author: Reza Esfandiari; Website: https://www.yadakgostar.co; licensed under GNU General Public License version 2 or later. -->
+<!-- Copyright (C) 2026 Reza Esfandiari; licensed under GNU General Public License version 2 or later. -->
 <config>
     <fieldset name="ippanel" label="COM_OTPLOGIN_FS_SMS" description="COM_OTPLOGIN_FS_SMS_DESC">
         <field name="sms_provider" type="list" label="COM_OTPLOGIN_SMS_PROVIDER" description="COM_OTPLOGIN_SMS_PROVIDER_DESC" default="ippanel">
@@ -190,6 +190,34 @@
             <option value="1">JYES</option>
         </field>
         <field name="telegram_on_verify_fail" type="radio" label="COM_OTPLOGIN_TG_ON_VERIFY_FAIL" layout="joomla.form.field.radio.switcher" default="0" filter="integer">
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+    </fieldset>
+
+
+    <fieldset name="bale" label="COM_OTPLOGIN_FS_BALE" description="COM_OTPLOGIN_FS_BALE_DESC" addfieldprefix="Otplogin\Component\Otplogin\Administrator\Field">
+        <field name="reset_bale_defaults" type="defaultreset" section="bale" label="" />
+        <field name="bale_enabled" type="radio" label="COM_OTPLOGIN_BALE_ENABLED" description="COM_OTPLOGIN_BALE_ENABLED_DESC" layout="joomla.form.field.radio.switcher" default="0" filter="integer">
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+        <field name="bale_bot_token" type="password" label="COM_OTPLOGIN_BALE_TOKEN" description="COM_OTPLOGIN_BALE_TOKEN_DESC" autocomplete="off" class="w-100" dir="ltr" />
+        <field name="bale_chat_id" type="text" label="COM_OTPLOGIN_BALE_CHAT" description="COM_OTPLOGIN_BALE_CHAT_DESC" dir="ltr" hint="123456789" />
+        <field name="bale_timeout" type="number" label="COM_OTPLOGIN_BALE_TIMEOUT" description="COM_OTPLOGIN_BALE_TIMEOUT_DESC" default="5" min="2" max="15" filter="integer" />
+        <field name="bale_on_sms_error" type="radio" label="COM_OTPLOGIN_BALE_ON_SMS_ERROR" layout="joomla.form.field.radio.switcher" default="1" filter="integer">
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+        <field name="bale_on_login" type="radio" label="COM_OTPLOGIN_BALE_ON_LOGIN" layout="joomla.form.field.radio.switcher" default="0" filter="integer">
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+        <field name="bale_on_register" type="radio" label="COM_OTPLOGIN_BALE_ON_REGISTER" layout="joomla.form.field.radio.switcher" default="1" filter="integer">
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+        <field name="bale_on_verify_fail" type="radio" label="COM_OTPLOGIN_BALE_ON_VERIFY_FAIL" layout="joomla.form.field.radio.switcher" default="0" filter="integer">
             <option value="0">JNO</option>
             <option value="1">JYES</option>
         </field>
